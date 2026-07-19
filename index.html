@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+<title>오늘 뭐 먹지</title>
+<meta name="theme-color" content="#12B886">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="오늘 뭐 먹지">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;}
+  :root{
+    --green:#00E85F; --green-d:#00CE54; --green-dd:#00A847;
+    --mint:#DBFEE8; --mint2:#9CFAC0;
+    --ink:#152018; --sub:#788B80; --line:#E9F1EB; --card:#fff; --bg:#F1F7F3;
+    --coral:#FF5A5A; --coral-l:#FFEAEA; --gold:#FFB020;
+  }
+  body{background:var(--bg);color:var(--ink);display:flex;justify-content:center;}
+  .app{width:100%;max-width:440px;min-height:100vh;background:var(--bg);position:relative;padding-bottom:84px;}
+
+  /* ===== header ===== */
+  header{background:linear-gradient(135deg,#25FA86 0%,#00D45D 100%);color:#fff;
+    padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-radius:0 0 22px 22px;
+    box-shadow:0 5px 18px rgba(0,212,93,.3);}
+  .htop{display:flex;align-items:center;justify-content:space-between;}
+  .loc{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;
+    background:rgba(255,255,255,.2);padding:4px 10px;border-radius:20px;}
+  .loc .dot{width:6px;height:6px;background:#EAFFF3;border-radius:50%;box-shadow:0 0 0 3px rgba(234,255,243,.35);}
+  .greet{font-size:18px;font-weight:800;margin-top:8px;letter-spacing:-.5px;line-height:1.2;}
+  .greet .em{font-size:19px;}
+  .sub{display:none;}
+  .slots{display:flex;gap:6px;margin-top:11px;background:rgba(255,255,255,.16);padding:3px;border-radius:13px;}
+  .slot{flex:1;text-align:center;padding:8px 0;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;transition:.15s;color:#eafff5;}
+  .slot.on{background:#fff;color:var(--green-dd);box-shadow:0 2px 8px rgba(0,0,0,.12);}
+  .slot .ic{font-size:14px;margin-right:3px;}
+
+  /* ===== category quick filter ===== */
+  .cats{display:flex;gap:8px;overflow-x:auto;padding:14px 16px 4px;scrollbar-width:none;}
+  .cats::-webkit-scrollbar{display:none;}
+  .catchip{flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 15px;border-radius:22px;
+    background:#fff;border:1.5px solid var(--line);color:var(--sub);cursor:pointer;transition:.12s;white-space:nowrap;}
+  .catchip.on{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 3px 10px rgba(18,184,134,.28);}
+
+  main{padding:8px 16px 16px;}
+  .rowhead{display:flex;align-items:center;justify-content:space-between;margin:8px 2px 12px;}
+  .rowhead h2{font-size:17px;font-weight:800;letter-spacing:-.4px;}
+  .rowhead .cnt{font-size:11.5px;color:var(--sub);font-weight:500;}
+  .hbtns{display:flex;gap:6px;}
+  .pill{border:none;border-radius:22px;padding:7px 13px;font-size:12.5px;font-weight:800;cursor:pointer;
+    display:inline-flex;align-items:center;gap:4px;}
+  .pill.share{background:var(--mint);color:var(--green-dd);}
+  .pill.vote{background:var(--green);color:#fff;}
+  .pill:active{transform:scale(.96);}
+
+  /* ===== 추천 카드 (겹쳐 쌓인 카드 지갑) ===== */
+  .deckhint{text-align:center;font-size:11.5px;color:var(--sub);margin:0 0 10px;font-weight:600;}
+  .wcard{position:relative;border-radius:22px;overflow:hidden;cursor:pointer;margin-top:-78px;
+    box-shadow:0 -4px 18px rgba(15,40,25,.18);transition:margin .42s cubic-bezier(.22,1,.36,1);}
+  .wcard:first-child{margin-top:0;}
+  .wcard.expanded{margin-top:16px;z-index:30;}
+  .wcard.expanded:first-child{margin-top:0;}
+  .wcard.expanded + .wcard{margin-top:16px;}
+  .wcard .photo{position:relative;height:150px;background:var(--mint);transition:height .42s cubic-bezier(.22,1,.36,1);}
+  .wcard.expanded .photo{height:190px;}
+  .wcard .photo img{width:100%;height:100%;object-fit:cover;display:block;}
+  .wcard .photo .ph-em{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:52px;}
+  .wcard .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.02) 30%,rgba(0,0,0,.66) 100%);}
+  .wcard .ptitle{position:absolute;left:16px;bottom:12px;right:58px;color:#fff;transition:none;}
+  .wcard .ptitle b{font-size:18px;font-weight:800;letter-spacing:-.4px;text-shadow:0 1px 7px rgba(0,0,0,.5);}
+  .wcard .pt-cat{font-size:11px;font-weight:800;background:rgba(255,255,255,.92);color:var(--green-dd);padding:2px 8px;border-radius:20px;margin-left:6px;}
+  .wcard .pt-sub{display:block;font-size:11.5px;font-weight:600;opacity:.94;margin-top:3px;text-shadow:0 1px 4px rgba(0,0,0,.5);}
+  /* 접힘: 겹친 카드의 '윗부분'만 보이므로 이미지+메뉴명을 상단에, 카테고리·위치는 숨김 */
+  .wcard:not(.expanded) .ptitle{top:12px;bottom:auto;}
+  .wcard:not(.expanded) .scrim{background:linear-gradient(180deg,rgba(0,0,0,.5) 0%,rgba(0,0,0,.05) 38%,transparent 58%);}
+  .wcard:not(.expanded) .pt-cat,.wcard:not(.expanded) .pt-sub,.wcard:not(.expanded) .fav{display:none;}
+  .wcard .cardref{position:absolute;top:12px;right:12px;width:38px;height:38px;border-radius:50%;border:none;
+    background:rgba(255,255,255,.95);cursor:pointer;color:#2b2b2b;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 9px rgba(0,0,0,.22);z-index:3;transition:transform .4s;}
+  .wcard .cardref svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;display:block;}
+  .wcard .cardref:active{transform:rotate(-180deg);}
+  .wcard .fav{position:absolute;top:14px;left:14px;font-size:11px;font-weight:800;color:#fff;
+    background:var(--coral);padding:4px 10px;border-radius:20px;box-shadow:0 2px 8px rgba(255,90,90,.45);z-index:3;}
+  .wcard .body{background:#fff;max-height:0;opacity:0;overflow:hidden;transition:max-height .42s cubic-bezier(.22,1,.36,1),opacity .3s;}
+  .wcard.expanded .body{max-height:300px;opacity:1;}
+  .wcard .bpad{padding:13px 15px 15px;}
+  .meta{font-size:12.5px;color:var(--sub);font-weight:600;display:flex;flex-wrap:wrap;gap:3px 9px;}
+  .why{font-size:12.5px;color:#465049;margin-top:10px;background:#F3FBF6;border-radius:12px;padding:9px 11px;line-height:1.55;}
+  .why b{color:var(--green-dd);}
+  .acts{display:flex;gap:8px;margin-top:12px;}
+  .btn{border:none;border-radius:13px;padding:12px 0;font-size:13.5px;font-weight:800;cursor:pointer;transition:.12s;}
+  .btn:active{transform:scale(.97);}
+  .btn.ate{flex:1.3;background:var(--green);color:#fff;}
+  .btn.order{flex:1.3;background:var(--coral-l);color:var(--coral);}
+  .btn.map{flex:0 0 58px;background:#EAF3FF;color:#2E7BF6;}
+
+  .refresh{width:100%;border:2px dashed var(--green);background:transparent;color:var(--green-dd);
+    border-radius:16px;padding:14px;font-size:14.5px;font-weight:800;cursor:pointer;}
+  .refresh:active{background:var(--mint);}
+  .note{font-size:11.5px;color:var(--sub);text-align:center;margin-top:14px;line-height:1.7;}
+
+  /* ===== history ===== */
+  .hitem{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 15px;margin-bottom:11px;
+    box-shadow:0 2px 8px rgba(30,50,40,.04);}
+  .hitem .hrow{display:flex;align-items:center;gap:12px;}
+  .hitem .em{width:48px;height:48px;border-radius:13px;background:var(--mint);overflow:hidden;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:24px;}
+  .hitem .em img,.vrow .vem img{width:100%;height:100%;object-fit:cover;display:block;}
+  .hitem .info{flex:1;}
+  .hitem .info b{font-size:15px;font-weight:800;}
+  .hitem .info span{display:block;font-size:12px;color:var(--sub);margin-top:2px;}
+  .hitem .del{border:none;background:none;color:#c9776f;font-size:17px;cursor:pointer;padding:4px;}
+  .fresh{font-size:10.5px;font-weight:800;color:var(--coral);background:var(--coral-l);padding:3px 8px;border-radius:20px;}
+  .hrate{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
+  .stars{display:flex;gap:2px;}
+  .stars .st{font-size:21px;line-height:1;cursor:pointer;color:#e0e5e2;}
+  .stars .st.on{color:var(--gold);}
+  .prefbtns{display:flex;gap:6px;}
+  .pfbtn{border:1.5px solid var(--line);background:#fff;border-radius:22px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer;color:var(--sub);}
+  .pfbtn.like.on{background:var(--mint);border-color:var(--green);color:var(--green-dd);}
+  .pfbtn.dislike.on{background:var(--coral-l);border-color:var(--coral);color:#d9534f;}
+
+  /* ===== settings ===== */
+  .setblock{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:13px;
+    box-shadow:0 2px 8px rgba(30,50,40,.04);}
+  .setblock h4{font-size:14.5px;font-weight:800;margin-bottom:3px;}
+  .setblock p.d{font-size:12px;color:var(--sub);margin-bottom:12px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{font-size:13px;font-weight:700;padding:8px 13px;border-radius:22px;border:1.5px solid var(--line);background:#fff;color:var(--sub);cursor:pointer;}
+  .chip.on{background:var(--green);border-color:var(--green);color:#fff;}
+  .chip.ban.on{background:var(--coral);border-color:var(--coral);}
+  .daysel{display:flex;gap:8px;}
+  .daysel .chip{flex:1;text-align:center;}
+  /* 게스트 안내 + 지원/피드백 */
+  .guestcard{display:flex;align-items:center;gap:12px;background:var(--mint);border:1px solid var(--mint2);
+    border-radius:16px;padding:13px 15px;margin-bottom:13px;}
+  .guestcard .gic{width:40px;height:40px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;color:var(--green-dd);flex-shrink:0;}
+  .guestcard .gic svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .guestcard .gtx b{font-size:13.5px;font-weight:800;color:var(--green-dd);}
+  .guestcard .gtx span{display:block;font-size:11.5px;color:#59695f;margin-top:2px;line-height:1.45;}
+  .setrow{display:flex;align-items:center;gap:13px;padding:13px 2px;cursor:pointer;border-bottom:1px solid var(--line);}
+  .setrow:last-child{border-bottom:none;}
+  .setrow:active{opacity:.6;}
+  .setrow .ric{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .setrow .ric svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .setrow .rlbl{flex:1;font-size:14px;font-weight:700;}
+  .setrow .chev svg{width:18px;height:18px;stroke:var(--sub);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block;}
+  .ric.feat{background:#EAF3FF;color:#2E7BF6;}
+  .ric.bug{background:#FFF3E0;color:#E8850C;}
+  .ric.coffee{background:var(--coral-l);color:var(--coral);}
+
+  .empty{text-align:center;color:var(--sub);padding:52px 20px;font-size:14px;line-height:1.7;}
+  .empty .big{font-size:44px;display:block;margin-bottom:12px;}
+
+  /* ===== nav ===== */
+  nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:440px;background:#fff;
+    border-top:1px solid var(--line);display:flex;padding:9px 0 calc(12px + env(safe-area-inset-bottom));
+    box-shadow:0 -3px 16px rgba(0,0,0,.05);z-index:20;}
+  .nav-btn{flex:1;border:none;background:none;cursor:pointer;color:var(--sub);font-size:11px;font-weight:700;
+    display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .nav-btn .ic{width:24px;height:24px;display:block;}
+  .nav-btn .ic svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .nav-btn.on{color:var(--green);}
+  .nav-btn.on .ic svg{stroke-width:2.2;}
+  .tab{display:none;}.tab.on{display:block;animation:fade .25s;}
+  @keyframes fade{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:none;}}
+
+  .toast{position:fixed;bottom:98px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
+    padding:12px 20px;border-radius:30px;font-size:13px;font-weight:700;opacity:0;pointer-events:none;transition:.3s;z-index:60;white-space:nowrap;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* ===== vote sheet ===== */
+  .overlay{position:fixed;inset:0;background:rgba(20,30,25,.5);display:none;align-items:flex-end;justify-content:center;z-index:100;}
+  .overlay.on{display:flex;animation:fade .2s;}
+  .sheet{width:100%;max-width:440px;background:var(--bg);border-radius:24px 24px 0 0;padding:22px 18px calc(26px + env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto;animation:up .25s;}
+  @keyframes up{from{transform:translateY(40px);}to{transform:none;}}
+  .sheet h3{font-size:19px;font-weight:800;}
+  .anonbadge{font-size:11px;font-weight:800;color:var(--green-dd);background:var(--mint);padding:3px 9px;border-radius:20px;margin-left:4px;vertical-align:middle;}
+  .sheet .desc{font-size:12.5px;color:var(--sub);margin:5px 0 15px;line-height:1.5;}
+  .votecast{text-align:center;font-size:12.5px;font-weight:700;color:var(--sub);background:#eaf1ee;border-radius:12px;padding:10px;margin-bottom:13px;}
+  .vrow{background:#fff;border:1px solid var(--line);border-radius:15px;padding:12px 14px;margin-bottom:10px;position:relative;overflow:hidden;}
+  .vrow .bar{position:absolute;inset:0;background:var(--mint);width:0;transition:width .4s;z-index:0;}
+  .vrow.win .bar{background:#FFF4D6;}
+  .vrow .vc{position:relative;z-index:1;display:flex;align-items:center;gap:11px;}
+  .vrow .vem{font-size:22px;width:44px;height:44px;border-radius:12px;background:#fff;border:1px solid var(--line);overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .vrow .vinfo{flex:1;}.vrow .vinfo b{font-size:15px;font-weight:800;}.vrow .vinfo span{display:block;font-size:11.5px;color:var(--sub);margin-top:1px;}
+  .vrow .vcount{font-size:13px;font-weight:800;color:var(--green-dd);margin-right:8px;min-width:36px;text-align:right;}
+  .vrow .vbtn{border:none;background:var(--green);color:#fff;border-radius:22px;padding:9px 15px;font-size:13px;font-weight:800;cursor:pointer;}
+  .vrow .vbtn:active{transform:scale(.94);}
+  .vrow .crown{position:absolute;top:-2px;right:10px;font-size:16px;z-index:2;}
+  .sheet .primary{width:100%;border:none;background:var(--green);color:#fff;border-radius:15px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:8px;}
+  .sheet .close{width:100%;border:none;background:#e9ece9;color:var(--ink);border-radius:15px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;}
+
+  /* install hint */
+  .installbar{margin:0 16px 12px;background:var(--mint);border:1px solid var(--mint2);border-radius:14px;padding:11px 14px;
+    display:none;align-items:center;gap:10px;font-size:12.5px;color:var(--green-dd);font-weight:600;}
+  .installbar.on{display:flex;}
+  .installbar button{margin-left:auto;border:none;background:var(--green);color:#fff;border-radius:20px;padding:7px 13px;font-size:12px;font-weight:800;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="loc"><span class="dot"></span><span id="locText">위치 확인 중…</span></div>
+    <div class="greet" id="greet">🍽️ 오늘 뭐 먹지?</div>
+    <div class="sub" id="greetSub">지금 딱 맞는 메뉴 골라봤어요</div>
+    <div class="slots" id="slots">
+      <div class="slot" data-slot="아침"><span class="ic">🌅</span>아침</div>
+      <div class="slot" data-slot="점심"><span class="ic">☀️</span>점심</div>
+      <div class="slot" data-slot="저녁"><span class="ic">🌙</span>저녁</div>
+    </div>
+  </header>
+
+  <div class="installbar" id="installBar">
+    📲 홈 화면에 추가하면 앱처럼 쓸 수 있어요
+    <button id="installBtn">설치</button>
+  </div>
+
+  <!-- 추천 -->
+  <section class="tab on" id="tab-home">
+    <div class="cats" id="cats"></div>
+    <main>
+      <div class="rowhead">
+        <div><h2 id="recTitle">추천 메뉴</h2><div class="cnt" id="recCnt"></div></div>
+        <div class="hbtns">
+          <button class="pill share" onclick="shareRecs()">📤 공유</button>
+          <button class="pill vote" onclick="openVote()">🗳️ 투표</button>
+        </div>
+      </div>
+      <p class="deckhint">카드를 탭하면 펼쳐지고, 새로고침은 그 메뉴만 바꿔요</p>
+      <div id="cards"></div>
+      <button class="refresh" onclick="render()" style="margin-top:16px"><svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px;margin-right:6px"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg>전체 다시 추천받기</button>
+      <p class="note">최근 먹은 메뉴·👎 비선호는 자동 제외<br>위치 권한을 허용하면 내 주변 실시간 식당을 불러와요 (미배포/거부 시 강남역 샘플)</p>
+    </main>
+  </section>
+
+  <!-- 기록 -->
+  <section class="tab" id="tab-log"><main>
+    <div class="rowhead"><h2>먹은 기록</h2><span class="cnt" id="logCnt"></span></div>
+    <div id="history"></div>
+  </main></section>
+
+  <!-- 지도 -->
+  <section class="tab" id="tab-map">
+    <main style="padding-bottom:8px"><div class="rowhead"><h2>주변 지도</h2><span class="cnt" id="mapCnt"></span></div></main>
+    <div id="mapView" style="width:100%;height:64vh;background:var(--mint)"></div>
+    <div id="mapFallback" style="display:none" class="empty"><span class="big">🗺️</span>지도를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.<br><br><button class="btn map" style="padding:12px 20px" onclick="openMap('내 주변 맛집')">카카오맵에서 보기</button></div>
+  </section>
+
+  <!-- 설정 -->
+  <section class="tab" id="tab-set"><main>
+    <div class="rowhead"><h2>설정</h2></div>
+    <div class="guestcard">
+      <div class="gic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6.5 8-6.5s8 2.5 8 6.5"/></svg></div>
+      <div class="gtx"><b>게스트로 사용 중</b><span>나중에 로그인하면 기록을 백업하고 다른 기기에서도 볼 수 있어요.</span></div>
+    </div>
+    <div class="setblock"><h4>제외 기간</h4><p class="d">최근 며칠 안에 먹은 메뉴를 뺄까요?</p><div class="daysel" id="daysel"></div></div>
+    <div class="setblock"><h4>선호 카테고리 <span style="color:var(--green)">⭐</span></h4><p class="d">고른 종류가 추천에서 우선 노출돼요.</p><div class="chips" id="prefChips"></div></div>
+    <div class="setblock"><h4>못 먹는 / 안 먹는 음식 <span style="color:var(--coral)">🚫</span></h4><p class="d">고른 종류는 추천에서 완전히 빠집니다.</p><div class="chips" id="banChips"></div></div>
+    <div class="setblock">
+      <h4>지원 &amp; 피드백</h4>
+      <div class="setrow" onclick="sendFeedback('feature')">
+        <div class="ric feat"><svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.8 10.6c.5.4.8 1 .8 1.6v.3h6v-.3c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3z"/></svg></div>
+        <span class="rlbl">기능 제안하기</span>
+        <span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+      <div class="setrow" onclick="sendFeedback('bug')">
+        <div class="ric bug"><svg viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg></div>
+        <span class="rlbl">오류 제보하기</span>
+        <span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+      <div class="setrow" onclick="supportCoffee()">
+        <div class="ric coffee"><svg viewBox="0 0 24 24"><path d="M4 8h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8z"/><path d="M17 9h2.2a2.3 2.3 0 0 1 0 4.6H17"/><path d="M7 3v2M10.5 3v2M14 3v2"/></svg></div>
+        <span class="rlbl">개발자에게 커피 한 잔 ☕</span>
+        <span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+    </div>
+    <p class="note">데이터는 이 기기에만 저장돼요 · v1.0 (PWA)</p>
+  </main></section>
+
+  <nav>
+    <button class="nav-btn on" data-tab="home"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></svg></span>추천</button>
+    <button class="nav-btn" data-tab="log"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2.2"/><path d="M9 3.5h6v2.5H9z"/><path d="M9 11h6M9 15h4"/></svg></span>기록</button>
+    <button class="nav-btn" data-tab="map"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21s6.5-5.8 6.5-10.5A6.5 6.5 0 0 0 5.5 10.5C5.5 15.2 12 21 12 21z"/><circle cx="12" cy="10.3" r="2.4"/></svg></span>지도</button>
+    <button class="nav-btn" data-tab="set"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.2v2.4M12 18.4v2.4M3.2 12h2.4M18.4 12h2.4M5.8 5.8l1.7 1.7M16.5 16.5l1.7 1.7M18.2 5.8l-1.7 1.7M7.5 16.5l-1.7 1.7"/></svg></span>설정</button>
+  </nav>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- 투표 -->
+<div class="overlay" id="voteOverlay"><div class="sheet">
+  <h3>🗳️ 같이 투표 <span class="anonbadge">익명 · 복수 가능</span></h3>
+  <p class="desc">누구든 원하는 만큼 눌러 투표하세요. 결과는 <b>결과 보기</b>를 눌러야 공개돼요 👑</p>
+  <div class="votecast" id="voteCast"></div>
+  <div id="voteList"></div>
+  <button class="primary" id="voteAction" onclick="voteActionClick()">📊 결과 보기</button>
+  <button class="close" onclick="closeVote()">닫기</button>
+</div></div>
+
+<!-- 커피 후원 안내 -->
+<div class="overlay" id="coffeeOverlay"><div class="sheet">
+  <div style="text-align:center;padding:4px 6px 2px">
+    <div style="font-size:46px;line-height:1">☕</div>
+    <h3 style="margin-top:10px">고맙습니다!</h3>
+    <p class="desc" style="margin:9px 4px 2px;line-height:1.55">‘오늘 뭐 먹지’는 작은 팀이 밥 먹듯 만들어가고 있어요.<br>보내주시는 커피 한 잔이 다음 업데이트의 큰 힘이 됩니다 🙏</p>
+  </div>
+  <button class="primary" onclick="goCoffee()">카카오페이로 커피 보내기</button>
+  <button class="close" onclick="closeCoffee()">다음에요</button>
+</div></div>
+
+<script>
+// ================= 데이터 =================
+// 기본값은 강남역 샘플(네이버 지역검색). 위치 권한 허용 시 카카오 실시간 데이터로 교체된다.
+let RESTAURANTS = [
+  {name:"고에몬 강남점",menu:"파스타",cat:"양식",em:"🍝",dist:119,price:"1만원대",slots:["점심","저녁"],lat:37.498458,lng:127.026455,tip:"쫄깃한 생면 파스타로 든든한 한 끼",tags:["양식","파스타","면/국수"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fi.pinimg.com%2F736x%2F06%2Ff2%2Fab%2F06f2ab6acdfb81853d55ea632d5764f1.jpg"},
+  {name:"로봇김밥 강남역점",menu:"김밥",cat:"분식",em:"🍙",dist:126,price:"5천원대",slots:["아침","점심","저녁"],lat:37.496845,lng:127.028133,tip:"코앞 1분 거리, 바쁠 때 김밥 한 줄로 간단히",tags:["분식","김밥"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_60246C3F0E05B2AD74F5C1897666076A.jpg"},
+  {name:"아티제 삼성타운점",menu:"샌드위치",cat:"카페",em:"🥪",dist:186,price:"1만원대",slots:["아침"],lat:37.496285,lng:127.02706,tip:"커피랑 샌드위치로 가볍게 시작하는 아침",tags:["카페","샌드위치","브런치"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2018%2F08%2F08%2F4fc69c423e805298090e6f21252deb801.jpg"},
+  {name:"장인닭갈비 강남점",menu:"닭갈비",cat:"한식",em:"🍲",dist:195,price:"1만원대",slots:["점심","저녁"],lat:37.499655,lng:127.027494,tip:"매콤 닭갈비, 든든하게 채우고 싶은 날",tags:["한식","닭갈비","고기/구이","매운맛"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2019%2F02%2F01%2F35db4e13c26d2c6172fda14b929e095d1.jpg"},
+  {name:"1992 덮밥&짜글이 강남본점",menu:"짜글이덮밥",cat:"한식",em:"🍱",dist:218,price:"5천원대",slots:["점심","저녁"],lat:37.49642,lng:127.029218,tip:"5천원대 가성비 덮밥, 빠른 점심에 딱",tags:["한식","덮밥/백반","찌개/국밥"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fd12zq4w4guyljn.cloudfront.net%2F750_750_20250426115105_photo1_8cec71aea6cb.jpg"},
+  {name:"하우마라탕",menu:"마라탕",cat:"중식",em:"🍲",dist:254,price:"1만원대",slots:["점심","저녁"],lat:37.49977,lng:127.029251,tip:"얼큰한 국물로 스트레스 풀리는 한 끼",tags:["중식","마라탕/훠궈","매운맛"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2016%2F11%2F10%2F13e59e1b2539db1196695794dea341c51.jpg%3Fw%3D1000"},
+  {name:"쉐이크쉑 강남대로점",menu:"쉑버거",cat:"양식",em:"🍔",dist:273,price:"1만원대",slots:["점심","저녁"],lat:37.500102,lng:127.026222,tip:"육즙 가득 버거, 캐주얼하게 한 끼",tags:["양식","버거"],img:"https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F5312%2F2021%2F08%2F27%2F0000195075_001_20210827105421558.jpg"},
+  {name:"장원김밥 서초점",menu:"김밥",cat:"분식",em:"🍙",dist:360,price:"5천원대",slots:["아침","점심","저녁"],lat:37.500649,lng:127.025436,tip:"든든한 김밥, 시간 없을 때 빠르게",tags:["분식","김밥"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_60246C3F0E05B2AD74F5C1897666076A.jpg"},
+  {name:"은행골 강남역점",menu:"초밥",cat:"일식",em:"🍣",dist:367,price:"2만원대",slots:["점심","저녁"],lat:37.500577,lng:127.02517,tip:"신선한 초밥으로 조금 특별한 한 끼",tags:["일식","초밥/회","해산물"],img:"https://search.pstatic.net/common/?type=b150&src=https%3A%2F%2Fpup-post-phinf.pstatic.net%2FMjAyNTEyMzFfMjEx%2FMDAxNzY3MTU3OTA1NTEx.JF1fKMDpbOYsodPrJAU_tuJqHMOqPilLXCaPoFO6074g.KwPOapl4V8aSlI6xkWEjbSw4Xa39muhKGPD7BQVlKqwg.JPEG%2F1C7B9387-2963-4D4C-9203-6AED4DBEED2B.jpg"},
+  {name:"춘리마라탕 강남점",menu:"마라탕",cat:"중식",em:"🍲",dist:417,price:"1만원대",slots:["점심","저녁"],lat:37.501513,lng:127.026345,tip:"재료 골라 담는 재미, 얼큰 마라탕",tags:["중식","마라탕/훠궈","매운맛"],img:"https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F5415%2F2019%2F05%2F29%2F0000107720_001_20190529125427572.jpg"},
+  {name:"다몽집 신논현본점",menu:"돼지고기구이",cat:"한식",em:"🥓",dist:435,price:"2만원대",slots:["저녁"],lat:37.501794,lng:127.027157,tip:"노릇하게 구운 고기, 저녁 회식에 좋아요",tags:["한식","고기/구이"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_8E8F51A5CDA19CC86E22D3D620ACFA1C.jpg"},
+  {name:"60년전통신촌황소곱창 강남역직영점",menu:"곱창구이",cat:"한식",em:"🍢",dist:440,price:"2만원대",slots:["저녁"],lat:37.501842,lng:127.027169,tip:"불맛 나는 곱창, 저녁 술 한잔과 잘 어울려요",tags:["한식","고기/구이","곱창","야식"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_20553FDE73D6F76A6CBFDBC612A919F4.jpg"},
+  {name:"팡뮤제 베이커리 강남본점",menu:"크루아상",cat:"카페",em:"🥐",dist:441,price:"5천원대",slots:["아침"],lat:37.496307,lng:127.032176,tip:"갓 구운 크루아상으로 여유로운 아침",tags:["카페","베이커리","디저트","브런치"],img:"https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F014%2F2023%2F02%2F08%2F0004966196_003_20230208144805118.jpg"},
+  {name:"보슬보슬 역삼본점",menu:"떡볶이",cat:"분식",em:"🌶️",dist:500,price:"5천원대",slots:["점심","저녁"],lat:37.497709,lng:127.033268,tip:"달달 매콤 떡볶이로 부담 없이 한 끼",tags:["분식","떡볶이","매운맛"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_85E59986825A70553BA680C17FAB42B9.jpg"},
+  {name:"베이커스트 브라운",menu:"베이커리",cat:"카페",em:"🥐",dist:513,price:"5천원대",slots:["아침"],lat:37.502504,lng:127.027243,tip:"빵 향 가득, 아침 대용으로 좋아요",tags:["카페","베이커리","디저트","브런치"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fi.pinimg.com%2Foriginals%2F11%2F7c%2Fcb%2F117ccbb227c4837c32313bb2a53145f2.jpg"},
+  {name:"프라텔리",menu:"브런치플레이트",cat:"카페",em:"🥪",dist:551,price:"1만원대",slots:["아침"],lat:37.502827,lng:127.026907,tip:"브런치 플레이트로 든든하게 채우는 아침",tags:["카페","브런치","샐러드"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2018%2F08%2F06%2F7b9d59db9b1c72cefe73da7148ba351e.jpg"},
+  {name:"고베규카츠 서울 강남점",menu:"규카츠",cat:"일식",em:"🍛",dist:555,price:"1만원대",slots:["점심","저녁"],lat:37.502887,lng:127.027587,tip:"겉바속촉 규카츠, 든든한 한 끼",tags:["일식","돈카츠/카츠"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_00E29643496FBD8274096DBF3E184E2D.jpg"},
+  {name:"하이디라오 서초점",menu:"훠궈",cat:"중식",em:"🍲",dist:574,price:"3만원대",slots:["저녁"],lat:37.502579,lng:127.024851,tip:"직접 끓여 먹는 훠궈, 특별한 저녁 자리에",tags:["중식","마라탕/훠궈"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fmedia.triple.guide%2Ftriple-cms%2Fc_limit%2Cf_auto%2Ch_1024%2Cw_1024%2F809a1dbf-10ca-4f40-97ae-386a914bbb5a.jpeg"},
+  {name:"또보겠지떡볶이집 강남점",menu:"즉석떡볶이",cat:"분식",em:"🌶️",dist:577,price:"1만원대",slots:["점심","저녁"],lat:37.503082,lng:127.02728,tip:"끓여 먹는 즉석 떡볶이, 나눠 먹기 좋아요",tags:["분식","떡볶이","매운맛"],img:"https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F346%2F2024%2F08%2F31%2F0000079607_001_20240831200110969.jpg"},
+  {name:"태양의토마토라멘 강남점",menu:"토마토라멘",cat:"일식",em:"🍜",dist:577,price:"1만원대",slots:["점심","저녁"],lat:37.502976,lng:127.026236,tip:"토마토 베이스 라멘, 색다른 한 그릇",tags:["일식","라멘","면/국수"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fimg1.daumcdn.net%2Fthumb%2FR1280x0.fjpg%2F%3Ffname%3Dhttp%3A%2F%2Ft1.daumcdn.net%2Fbrunch%2Fservice%2Fuser%2FhSo%2Fimage%2FYp9RASf_UUIhjvUAz9AiLU2INZw.jpg"},
+  {name:"마초쉐프 강남본점",menu:"크림파스타",cat:"양식",em:"🍝",dist:613,price:"1만원대",slots:["점심","저녁"],lat:37.503408,lng:127.027873,tip:"진한 크림파스타로 든든하게",tags:["양식","파스타","면/국수"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_6F189F1E29EFF3B7D6F52149EAB6B89E.jpg"},
+];
+const CATS=["한식","중식","일식","양식","분식","카페","고기/구이","닭갈비","곱창","김밥","떡볶이","면/국수","라멘","파스타","마라탕/훠궈","돈카츠/카츠","초밥/회","해산물","버거","베이커리","브런치","디저트","샌드위치","샐러드","덮밥/백반","찌개/국밥","매운맛","야식"];
+const HOMECATS=["전체","한식","중식","일식","양식","분식","카페"];
+
+// ================= 상태 =================
+const KEY="todayeat_pwa_v1";
+let S=load();
+function load(){ try{const r=JSON.parse(localStorage.getItem(KEY));if(r)return r;}catch(e){} return {history:[],prefs:[],bans:[],excludeDays:3}; }
+function save(){ try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} }
+let curSlot=autoSlot(), activeCat=null;
+function autoSlot(){const h=new Date().getHours();if(h>=6&&h<11)return "아침";if(h>=11&&h<15)return "점심";return "저녁";}
+
+const SLOT_TXT={
+  "아침":{em:"🌅",g:"좋은 아침이에요!",s:"가볍게 시작할 아침 메뉴예요"},
+  "점심":{em:"☀️",g:"점심 시간이네요",s:"든든한 한 끼 골라봤어요"},
+  "저녁":{em:"🌙",g:"저녁 뭐 드실래요?",s:"오늘 하루 마무리 메뉴예요"},
+};
+function paintHeader(){
+  const t=SLOT_TXT[curSlot];
+  document.getElementById("greet").innerHTML=`<span class="em">${t.em}</span> ${t.g}`;
+  document.getElementById("greetSub").textContent=t.s;
+  document.querySelectorAll(".slot").forEach(el=>el.classList.toggle("on",el.dataset.slot===curSlot));
+  document.getElementById("recTitle").textContent=curSlot+" 추천 메뉴";
+}
+function paintCatFilter(){
+  document.getElementById("cats").innerHTML=HOMECATS.map(cName=>{
+    const on=(cName==="전체"&&!activeCat)||activeCat===cName;
+    return `<div class="catchip ${on?'on':''}" onclick="setCat('${cName}')">${cName}</div>`;
+  }).join("");
+}
+function setCat(cName){ activeCat=(cName==="전체")?null:cName; paintCatFilter(); render(); }
+
+// ================= 추천 로직 =================
+function catList(r){return r.tags||[r.cat];}
+function isPreferred(r){return catList(r).some(t=>S.prefs.includes(t));}
+function isBanned(r){return catList(r).some(t=>S.bans.includes(t));}
+function prefLabel(r){const m=catList(r).filter(t=>S.prefs.includes(t));return m[0]||"";}
+function recentMenus(){const cut=Date.now()-S.excludeDays*864e5;return S.history.filter(h=>h.ts>=cut).map(h=>h.menu);}
+function histFor(menu){return S.history.find(h=>h.menu===menu);}
+function isDisliked(r){const h=histFor(r.menu);return !!(h&&h.pref==="dislike");}
+function isFav(r){const h=histFor(r.menu);return !!(h&&(h.pref==="like"||h.rating>=4));}
+function score(r){
+  let sc=0;
+  sc+=r.slots.includes(curSlot)?40:0;
+  sc+=isPreferred(r)?25:0;
+  sc-=(r.dist/50);
+  const h=histFor(r.menu);
+  if(h){ if(h.pref==="like")sc+=35; if(h.rating>=4)sc+=15; else if(h.rating>0&&h.rating<=2)sc-=15; }
+  sc+=Math.random()*20;
+  return sc;
+}
+function eligiblePool(excludeMenus){
+  const recent=recentMenus();
+  return RESTAURANTS
+    .filter(r=>!isBanned(r)).filter(r=>!isDisliked(r))
+    .filter(r=>!recent.includes(r.menu))
+    .filter(r=>r.slots.includes(curSlot))
+    .filter(r=>!activeCat||catList(r).includes(activeCat)||r.cat===activeCat)
+    .filter(r=>!excludeMenus.includes(r.menu))
+    .map(r=>({r,sc:score(r)})).sort((a,b)=>b.sc-a.sc).map(x=>x.r);
+}
+let currentCards=[], expandedIdx=-1;   // -1 = 전부 접힘(겹친 상태)
+function render(){ paintHeader(); currentCards=eligiblePool([]).slice(0,4); expandedIdx=-1; paintCards(); }
+function refreshCard(pos){
+  const shown=currentCards.filter((_,i)=>i!==pos).map(r=>r.menu);
+  const pool=eligiblePool(shown);
+  if(pool.length===0){toast("바꿀 다른 메뉴가 더 없어요");return;}
+  currentCards[pos]=pool[0]; paintCards();   // 펼침 상태(expandedIdx)는 유지
+}
+// 카드 탭 → 펼침/접힘 토글 (모션은 클래스 토글로 부드럽게)
+function expandCard(i){
+  expandedIdx=(expandedIdx===i)?-1:i;
+  document.querySelectorAll("#cards .wcard").forEach((el,k)=>el.classList.toggle("expanded",k===expandedIdx));
+}
+function idx(r){return RESTAURANTS.indexOf(r);}
+function photoHTML(r){ return r.img
+  ? `<img src="${r.img}" alt="${r.menu}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=&quot;ph-em&quot;>${r.em}</div>'">`
+  : `<div class="ph-em">${r.em}</div>`; }
+function paintCards(){
+  const box=document.getElementById("cards");
+  const total=RESTAURANTS.filter(r=>r.slots.includes(curSlot)&&!isBanned(r)&&(!activeCat||catList(r).includes(activeCat)||r.cat===activeCat)).length;
+  document.getElementById("recCnt").textContent=`주변 ${total}곳 중 · 이 중에서 골라보세요`;
+  if(currentCards.length===0){
+    box.innerHTML=`<div class="empty"><span class="big">🍽️</span>조건에 맞는 메뉴가 부족해요.<br>카테고리 필터나 제외 설정을 확인해보세요.</div>`;
+    return;
+  }
+  if(expandedIdx>=currentCards.length) expandedIdx=-1;
+  box.innerHTML=currentCards.map((r,i)=>{
+    const walkMin=Math.max(1,Math.round(r.dist/70));
+    const pref=isPreferred(r)?` · ⭐선호 ${prefLabel(r)}`:"";
+    return `<div class="wcard ${i===expandedIdx?'expanded':''}" onclick="expandCard(${i})">
+      <div class="photo">${photoHTML(r)}<div class="scrim"></div>
+        ${isFav(r)?'<span class="fav">❤️ 내 취향</span>':''}
+        <button class="cardref" onclick="event.stopPropagation();refreshCard(${i})" aria-label="이 메뉴만 바꾸기"><svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg></button>
+        <div class="ptitle"><b>${r.menu}</b><span class="pt-cat">${r.cat}</span><span class="pt-sub">📍 ${r.name} · ${r.dist}m</span></div>
+      </div>
+      <div class="body"><div class="bpad">
+        <div class="meta"><span>💰 ${r.price}</span><span>·</span><span>🚶 걸어서 ${walkMin}분</span></div>
+        <div class="why">💡 ${r.tip}${pref}</div>
+        <div class="acts">
+          <button class="btn ate" onclick="event.stopPropagation();ate(${idx(r)})">✓ 이거 먹었어요</button>
+          <button class="btn order" onclick="event.stopPropagation();order(${i})">🛵 배달</button>
+          <button class="btn map" onclick="event.stopPropagation();openPlace(${i})">🗺️</button>
+        </div>
+      </div></div>
+    </div>`;
+  }).join("");
+}
+
+// ================= 액션 =================
+function ate(i){ const r=RESTAURANTS[i];
+  S.history.unshift({menu:r.menu,cat:r.cat,em:r.em,img:r.img,name:r.name,ts:Date.now(),rating:0,pref:null});
+  save(); toast(`"${r.menu}" 기록 완료 · ${S.excludeDays}일간 제외`); render(); renderHistory();
+}
+function order(i){ const r=currentCards[i]; toast(`실제 앱에선 배달앱으로 연결돼요 (${r.menu})`); }
+function openMap(q){ window.open("https://map.naver.com/v5/search/"+encodeURIComponent(q),"_blank"); toast("지도로 위치를 확인하세요"); }
+function openPlace(i){ const r=currentCards[i];
+  if(r&&r.url){ window.open(r.url,"_blank"); toast("카카오맵에서 위치를 확인하세요"); }
+  else openMap(r?r.name:""); }
+function delHist(i){ S.history.splice(i,1); save(); renderHistory(); render(); toast("기록을 삭제했어요"); }
+
+function renderHistory(){
+  const box=document.getElementById("history");
+  document.getElementById("logCnt").textContent=S.history.length?`${S.history.length}개`:"";
+  if(S.history.length===0){ box.innerHTML=`<div class="empty"><span class="big">📝</span>아직 기록이 없어요.<br>추천에서 "이거 먹었어요"를 눌러보세요.</div>`; return; }
+  const cut=Date.now()-S.excludeDays*864e5;
+  box.innerHTML=S.history.map((h,i)=>{
+    const fresh=h.ts>=cut, rating=h.rating||0;
+    const stars=[1,2,3,4,5].map(n=>`<span class="st ${n<=rating?'on':''}" onclick="setRating(${i},${n})">★</span>`).join("");
+    return `<div class="hitem">
+      <div class="hrow">
+        <div class="em">${h.img?`<img src="${h.img}" onerror="this.remove();this.parentNode.textContent='${h.em}'">`:h.em}</div>
+        <div class="info"><b>${h.menu}</b><span>${h.name} · ${h.cat} · ${timeAgo(h.ts)}</span></div>
+        ${fresh?'<span class="fresh">추천 제외중</span>':''}
+        <button class="del" onclick="delHist(${i})">🗑️</button>
+      </div>
+      <div class="hrate">
+        <div class="stars">${stars}</div>
+        <div class="prefbtns">
+          <button class="pfbtn like ${h.pref==='like'?'on':''}" onclick="setPref(${i},'like')">👍 선호</button>
+          <button class="pfbtn dislike ${h.pref==='dislike'?'on':''}" onclick="setPref(${i},'dislike')">👎 비선호</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+function setRating(i,n){ const h=S.history[i]; h.rating=(h.rating===n)?0:n; save(); renderHistory(); render(); toast(h.rating?`${h.menu} ★${h.rating}점`:"별점을 지웠어요"); }
+function setPref(i,p){ const h=S.history[i]; h.pref=(h.pref===p)?null:p; save(); renderHistory(); render();
+  toast(h.pref==="like"?`${h.menu} 선호 · 추천에 더 자주`:h.pref==="dislike"?`${h.menu} 비선호 · 추천 제외`:"표시를 해제했어요"); }
+function timeAgo(ts){ const d=Math.floor((Date.now()-ts)/1000);
+  if(d<60)return "방금"; if(d<3600)return Math.floor(d/60)+"분 전"; if(d<86400)return Math.floor(d/3600)+"시간 전"; return Math.floor(d/86400)+"일 전"; }
+
+// ================= 설정 =================
+function renderSettings(){
+  document.getElementById("daysel").innerHTML=[1,3,5,7].map(d=>`<div class="chip ${S.excludeDays===d?'on':''}" onclick="setDays(${d})">${d}일</div>`).join("");
+  document.getElementById("prefChips").innerHTML=CATS.map(cName=>`<div class="chip ${S.prefs.includes(cName)?'on':''}" onclick="togglePref('${cName}')">${cName}</div>`).join("");
+  document.getElementById("banChips").innerHTML=CATS.map(cName=>`<div class="chip ban ${S.bans.includes(cName)?'on':''}" onclick="toggleBan('${cName}')">${cName}</div>`).join("");
+}
+function setDays(d){S.excludeDays=d;save();renderSettings();render();renderHistory();}
+
+// 지원 & 피드백
+const DEV_EMAIL="funylong@gmail.com";
+const COFFEE_URL="https://qr.kakaopay.com/FY5eVQAMu";  // 카카오페이 송금 링크
+function sendFeedback(kind){
+  const subj=kind==="feature"?"[오늘 뭐 먹지] 기능 제안":"[오늘 뭐 먹지] 오류 제보";
+  const body=kind==="feature"
+    ? "제안하고 싶은 기능을 적어주세요:\n\n\n---\n(자유롭게 작성해 주세요)"
+    : "어떤 문제가 있었나요?\n\n· 어느 화면에서: \n· 무엇을 했더니: \n· 어떻게 되었나요: \n\n---";
+  location.href=`mailto:${DEV_EMAIL}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
+}
+function supportCoffee(){
+  if(!COFFEE_URL){ toast("☕ 마음 감사해요! 후원 링크는 곧 열려요"); return; }
+  document.getElementById("coffeeOverlay").classList.add("on");
+}
+function closeCoffee(){ document.getElementById("coffeeOverlay").classList.remove("on"); }
+function goCoffee(){ window.open(COFFEE_URL,"_blank"); closeCoffee(); toast("고맙습니다 ☕"); }
+function togglePref(cName){toggle(S.prefs,cName);if(S.bans.includes(cName))toggle(S.bans,cName);save();renderSettings();render();}
+function toggleBan(cName){toggle(S.bans,cName);if(S.prefs.includes(cName))toggle(S.prefs,cName);save();renderSettings();render();}
+function toggle(arr,cName){const i=arr.indexOf(cName);if(i>=0)arr.splice(i,1);else arr.push(cName);}
+
+// ================= 투표 =================
+let voteState=null;
+function openVote(){ if(currentCards.length===0){toast("투표할 추천이 없어요");return;}
+  voteState={counts:{},revealed:false}; currentCards.forEach(r=>voteState.counts[r.name]=0);
+  document.getElementById("voteOverlay").classList.add("on"); paintVote(); }
+function closeVote(){ document.getElementById("voteOverlay").classList.remove("on"); }
+function castVote(name){ if(voteState.revealed)return; voteState.counts[name]++; toast("투표 완료 🗳️"); paintVote(); }
+function voteActionClick(){ if(!voteState.revealed){voteState.revealed=true;} else{Object.keys(voteState.counts).forEach(k=>voteState.counts[k]=0);voteState.revealed=false;toast("다시 투표를 시작해요");} paintVote(); }
+function paintVote(){
+  const rev=voteState.revealed;
+  const counts=currentCards.map(r=>voteState.counts[r.name]||0);
+  const total=counts.reduce((a,b)=>a+b,0), max=Math.max(1,...counts), topVal=Math.max(...counts);
+  document.getElementById("voteCast").innerHTML=rev?`📊 총 ${total}표 · 결과 공개`:`🙈 결과는 가려져 있어요 · 지금까지 <b style="color:var(--green-dd)">${total}표</b>`;
+  document.getElementById("voteList").innerHTML=currentCards.map(r=>{
+    const c=voteState.counts[r.name]||0, win=total>0&&c===topVal, pct=total>0?Math.round(c/total*100):0;
+    if(!rev){ return `<div class="vrow"><div class="vc">
+      <div class="vem"><img src="${r.img}" onerror="this.remove();this.parentNode.textContent='${r.em}'"></div>
+      <div class="vinfo"><b>${r.menu}</b><span>${r.name}</span></div>
+      <button class="vbtn" onclick="castVote('${r.name}')">👍 투표</button></div></div>`; }
+    return `<div class="vrow ${win?'win':''}"><div class="bar" style="width:${(c/max)*100}%"></div>
+      ${win?'<span class="crown">👑</span>':''}<div class="vc">
+      <div class="vem"><img src="${r.img}" onerror="this.remove();this.parentNode.textContent='${r.em}'"></div>
+      <div class="vinfo"><b>${r.menu}</b><span>${r.name}</span></div>
+      <div class="vcount">${c}표<small style="display:block;font-weight:600;color:var(--sub);font-size:10px">${pct}%</small></div></div></div>`;
+  }).join("");
+  document.getElementById("voteAction").textContent=rev?"🔄 다시 투표":`📊 결과 보기 (${total}표)`;
+}
+async function shareRecs(){
+  if(currentCards.length===0){toast("공유할 추천이 없어요");return;}
+  const lines=currentCards.map((r,i)=>`${i+1}. ${r.menu} (${r.name} · ${r.dist}m)`);
+  const text=`🍽️ 오늘 ${curSlot} 뭐 먹지?\n같이 골라줘! 👇\n\n${lines.join("\n")}\n\n- 오늘 뭐 먹지`;
+  try{ if(navigator.share){await navigator.share({title:"오늘 뭐 먹지",text});return;} }catch(e){ if(e.name==="AbortError")return; }
+  try{ await navigator.clipboard.writeText(text); toast("추천 목록을 복사했어요 · 붙여넣어 공유"); }
+  catch(e){ prompt("아래 내용을 복사해 공유하세요",text); }
+}
+
+// ================= 탭 / 위치 / 토스트 =================
+document.querySelectorAll(".nav-btn").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("on"));
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); document.getElementById("tab-"+b.dataset.tab).classList.add("on");
+  if(b.dataset.tab==="log")renderHistory(); if(b.dataset.tab==="set")renderSettings();
+  if(b.dataset.tab==="map")openMapTab();
+  window.scrollTo(0,0);
+});
+document.querySelectorAll(".slot").forEach(s=>s.onclick=()=>{curSlot=s.dataset.slot;render();});
+let toastT; function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),2200);}
+// ===== 실시간 주변 식당 (카카오 프록시) =====
+const API_BASE="";            // 같은 도메인에 배포되면 빈 값 그대로 OK
+let usingLive=false;
+let lastLat=37.4979, lastLng=127.0276, lastNearby=null;   // 지도 탭에서 재사용
+async function loadNearby(lat,lng){
+  const el=document.getElementById("locText");
+  el.textContent="주변 식당 불러오는 중…";
+  lastLat=lat; lastLng=lng;
+  try{
+    const r=await fetch(`${API_BASE}/api/nearby?lat=${lat}&lng=${lng}`);
+    if(!r.ok) throw new Error("api");
+    const j=await r.json();
+    if(j&&j.items&&j.items.length){
+      RESTAURANTS=j.items; usingLive=true; lastNearby=j.items;
+      expandedIdx=-1; render(); renderHistory();
+      el.textContent="현재 위치 · 실시간 주변";
+      toast(`주변 식당 ${j.items.length}곳을 불러왔어요`);
+      return;
+    }
+    throw new Error("empty");
+  }catch(e){
+    el.textContent="강남역 부근 (샘플)";   // 프록시 미배포/실패 → 샘플 유지
+  }
+}
+
+// ===== 지도 (Leaflet + OpenStreetMap · 키 불필요) =====
+let mapObj=null, mapMarkers=[];
+function ensureLeaflet(){
+  return new Promise(res=>{
+    if(window.L){ res(true); return; }
+    const css=document.createElement("link"); css.rel="stylesheet";
+    css.href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"; document.head.appendChild(css);
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+    s.onload=()=>res(!!window.L); s.onerror=()=>res(false); document.head.appendChild(s);
+  });
+}
+async function openMapTab(){
+  const list=(lastNearby&&lastNearby.length)?lastNearby:RESTAURANTS;
+  document.getElementById("mapCnt").textContent=list.length?`${list.length}곳`:"";
+  const mv=document.getElementById("mapView"), fb=document.getElementById("mapFallback");
+  const ok=await ensureLeaflet();
+  if(!ok){ mv.style.display="none"; fb.style.display="block"; return; }
+  fb.style.display="none"; mv.style.display="block";
+  if(!mapObj){
+    mapObj=L.map(mv,{zoomControl:true}).setView([lastLat,lastLng],16);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(mapObj);
+  } else { mapObj.setView([lastLat,lastLng],16); }
+  mapMarkers.forEach(m=>mapObj.removeLayer(m)); mapMarkers=[];
+  // 내 위치 (초록)
+  const me=L.circleMarker([lastLat,lastLng],{radius:8,color:"#fff",weight:3,fillColor:"#00A847",fillOpacity:1}).addTo(mapObj);
+  me.bindPopup("📍 내 위치"); mapMarkers.push(me);
+  // 식당 (코랄)
+  list.forEach(r=>{
+    if(!r.lat||!r.lng) return;
+    const mk=L.circleMarker([r.lat,r.lng],{radius:7,color:"#fff",weight:2,fillColor:"#FF5A5A",fillOpacity:.95}).addTo(mapObj);
+    mk.bindPopup(`<b style="font-size:13px">${r.em||""} ${r.menu}</b><br><span style="color:#00A847;font-weight:600">${r.cat} · ${r.dist}m</span>`
+      + (r.url?`<br><a href="${r.url}" target="_blank" style="color:#2E7BF6">카카오맵에서 보기 →</a>`:""));
+    mapMarkers.push(mk);
+  });
+  setTimeout(()=>mapObj&&mapObj.invalidateSize(),150);
+}
+function initLocation(){ const el=document.getElementById("locText");
+  if(navigator.geolocation){
+    el.textContent="위치 확인 중…";
+    navigator.geolocation.getCurrentPosition(
+      p=>loadNearby(p.coords.latitude,p.coords.longitude),
+      ()=>{el.textContent="강남역 부근 (샘플)";},
+      {timeout:6000,enableHighAccuracy:true});
+  } else el.textContent="강남역 부근 (샘플)";
+}
+
+// ===== PWA: 설치 프롬프트 & 서비스워커 =====
+let deferredPrompt=null;
+window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; document.getElementById("installBar").classList.add("on"); });
+document.getElementById("installBtn").onclick=async()=>{
+  if(!deferredPrompt)return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; document.getElementById("installBar").classList.remove("on");
+};
+window.addEventListener("appinstalled",()=>document.getElementById("installBar").classList.remove("on"));
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js").catch(()=>{})); }
+
+// ===== 시작 =====
+initLocation(); paintCatFilter(); render(); renderHistory(); renderSettings();
+</script>
+</body>
+</html>
