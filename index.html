@@ -44,6 +44,8 @@
   .catchip{flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 15px;border-radius:22px;
     background:#fff;border:1.5px solid var(--line);color:var(--sub);cursor:pointer;transition:.12s;white-space:nowrap;}
   .catchip.on{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 3px 10px rgba(18,184,134,.28);}
+  .mkr{width:34px;height:34px;border-radius:50%;background:#fff;border:2px solid var(--coral);
+    display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 7px rgba(0,0,0,.28);}
 
   main{padding:8px 16px 16px;}
   .rowhead{display:flex;align-items:center;justify-content:space-between;margin:8px 2px 12px;}
@@ -256,8 +258,9 @@
 
   <!-- 지도 -->
   <section class="tab" id="tab-map">
-    <main style="padding-bottom:8px"><div class="rowhead"><h2>주변 지도</h2><span class="cnt" id="mapCnt"></span></div></main>
-    <div id="mapView" style="width:100%;height:64vh;background:var(--mint)"></div>
+    <main style="padding-bottom:6px"><div class="rowhead"><h2>주변 지도</h2><span class="cnt" id="mapCnt"></span></div></main>
+    <div class="cats" id="mapCats" style="padding:0 16px 10px"></div>
+    <div id="mapView" style="width:100%;height:60vh;background:var(--mint)"></div>
     <div id="mapFallback" style="display:none" class="empty"><span class="big">🗺️</span>지도를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.<br><br><button class="btn map" style="padding:12px 20px" onclick="openMap('내 주변 맛집')">카카오맵에서 보기</button></div>
   </section>
 
@@ -638,7 +641,7 @@ async function loadNearby(lat,lng){
 }
 
 // ===== 지도 (Leaflet + OpenStreetMap · 키 불필요) =====
-let mapObj=null, mapMarkers=[];
+let mapObj=null, mapMarkers=[], mapCat=null;
 function ensureLeaflet(){
   return new Promise(res=>{
     if(window.L){ res(true); return; }
@@ -649,10 +652,34 @@ function ensureLeaflet(){
     s.onload=()=>res(!!window.L); s.onerror=()=>res(false); document.head.appendChild(s);
   });
 }
+function mapList(){ return (lastNearby&&lastNearby.length)?lastNearby:RESTAURANTS; }
+function paintMapCats(){
+  const cats=["전체", ...Array.from(new Set(mapList().map(r=>r.cat)))];
+  document.getElementById("mapCats").innerHTML=cats.map(c=>{
+    const on=(c==="전체"&&!mapCat)||mapCat===c;
+    return `<div class="catchip ${on?'on':''}" onclick="setMapCat('${c}')">${c}</div>`;
+  }).join("");
+}
+function setMapCat(c){ mapCat=(c==="전체")?null:c; paintMapCats(); drawMarkers(); }
+function drawMarkers(){
+  if(!mapObj) return;
+  mapMarkers.forEach(m=>mapObj.removeLayer(m)); mapMarkers=[];
+  // 내 위치 (초록)
+  const me=L.circleMarker([lastLat,lastLng],{radius:8,color:"#fff",weight:3,fillColor:"#00A847",fillOpacity:1}).addTo(mapObj);
+  me.bindPopup("📍 내 위치"); mapMarkers.push(me);
+  const list=mapList().filter(r=>r.lat&&r.lng).filter(r=>!mapCat||r.cat===mapCat);
+  document.getElementById("mapCnt").textContent=`${list.length}곳`;
+  list.forEach(r=>{
+    const icon=L.divIcon({className:"",html:`<div class="mkr">${r.em||"🍽️"}</div>`,iconSize:[34,34],iconAnchor:[17,17],popupAnchor:[0,-16]});
+    const mk=L.marker([r.lat,r.lng],{icon}).addTo(mapObj);
+    mk.bindPopup(`<b style="font-size:13px">${r.em||""} ${r.menu}</b><br><span style="color:#00A847;font-weight:600">${r.cat} · ${r.dist}m</span>`
+      + (r.url?`<br><a href="${r.url}" target="_blank" style="color:#2E7BF6">카카오맵에서 보기 →</a>`:""));
+    mapMarkers.push(mk);
+  });
+}
 async function openMapTab(){
-  const list=(lastNearby&&lastNearby.length)?lastNearby:RESTAURANTS;
-  document.getElementById("mapCnt").textContent=list.length?`${list.length}곳`:"";
   const mv=document.getElementById("mapView"), fb=document.getElementById("mapFallback");
+  paintMapCats();
   const ok=await ensureLeaflet();
   if(!ok){ mv.style.display="none"; fb.style.display="block"; return; }
   fb.style.display="none"; mv.style.display="block";
@@ -660,18 +687,7 @@ async function openMapTab(){
     mapObj=L.map(mv,{zoomControl:true}).setView([lastLat,lastLng],16);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(mapObj);
   } else { mapObj.setView([lastLat,lastLng],16); }
-  mapMarkers.forEach(m=>mapObj.removeLayer(m)); mapMarkers=[];
-  // 내 위치 (초록)
-  const me=L.circleMarker([lastLat,lastLng],{radius:8,color:"#fff",weight:3,fillColor:"#00A847",fillOpacity:1}).addTo(mapObj);
-  me.bindPopup("📍 내 위치"); mapMarkers.push(me);
-  // 식당 (코랄)
-  list.forEach(r=>{
-    if(!r.lat||!r.lng) return;
-    const mk=L.circleMarker([r.lat,r.lng],{radius:7,color:"#fff",weight:2,fillColor:"#FF5A5A",fillOpacity:.95}).addTo(mapObj);
-    mk.bindPopup(`<b style="font-size:13px">${r.em||""} ${r.menu}</b><br><span style="color:#00A847;font-weight:600">${r.cat} · ${r.dist}m</span>`
-      + (r.url?`<br><a href="${r.url}" target="_blank" style="color:#2E7BF6">카카오맵에서 보기 →</a>`:""));
-    mapMarkers.push(mk);
-  });
+  drawMarkers();
   setTimeout(()=>mapObj&&mapObj.invalidateSize(),150);
 }
 function initLocation(){ const el=document.getElementById("locText");
