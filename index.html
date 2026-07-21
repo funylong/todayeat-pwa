@@ -171,7 +171,10 @@
   /* ===== nav ===== */
   nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:440px;background:#fff;
     border-top:1px solid var(--line);display:flex;padding:9px 0 calc(12px + env(safe-area-inset-bottom));
-    box-shadow:0 -3px 16px rgba(0,0,0,.05);z-index:20;}
+    box-shadow:0 -3px 16px rgba(0,0,0,.05);z-index:1000;}
+  /* 지도는 독립 레이어에 가둬서 하단 내비를 덮지 않게 */
+  #mapView{isolation:isolate;position:relative;z-index:0;border-radius:0 0 4px 4px;}
+  .leaflet-container{z-index:0 !important;}
   .nav-btn{flex:1;border:none;background:none;cursor:pointer;color:var(--sub);font-size:11px;font-weight:700;
     display:flex;flex-direction:column;align-items:center;gap:4px;}
   .nav-btn .ic{width:24px;height:24px;display:block;}
