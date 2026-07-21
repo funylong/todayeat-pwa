@@ -56,46 +56,48 @@
   .pill.vote{background:var(--green);color:#fff;}
   .pill:active{transform:scale(.96);}
 
-  /* ===== 추천 카드 (겹쳐 쌓인 카드 지갑) ===== */
-  .deckhint{text-align:center;font-size:11.5px;color:var(--sub);margin:0 0 10px;font-weight:600;}
-  .wcard{position:relative;border-radius:22px;overflow:hidden;cursor:pointer;margin-top:-78px;
-    box-shadow:0 -4px 18px rgba(15,40,25,.18);transition:margin .42s cubic-bezier(.22,1,.36,1);}
-  .wcard:first-child{margin-top:0;}
-  .wcard.expanded{margin-top:16px;z-index:30;}
-  .wcard.expanded:first-child{margin-top:0;}
-  .wcard.expanded + .wcard{margin-top:16px;}
-  .wcard .photo{position:relative;height:150px;background:var(--mint);transition:height .42s cubic-bezier(.22,1,.36,1);}
-  .wcard.expanded .photo{height:190px;}
-  .wcard .photo img{width:100%;height:100%;object-fit:cover;display:block;}
-  .wcard .photo .ph-em{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:52px;}
-  .wcard .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.02) 30%,rgba(0,0,0,.66) 100%);}
-  .wcard .ptitle{position:absolute;left:16px;bottom:12px;right:58px;color:#fff;transition:none;}
-  .wcard .ptitle b{font-size:18px;font-weight:800;letter-spacing:-.4px;text-shadow:0 1px 7px rgba(0,0,0,.5);}
-  .wcard .pt-cat{font-size:11px;font-weight:800;background:rgba(255,255,255,.92);color:var(--green-dd);padding:2px 8px;border-radius:20px;margin-left:6px;}
-  .wcard .pt-sub{display:block;font-size:11.5px;font-weight:600;opacity:.94;margin-top:3px;text-shadow:0 1px 4px rgba(0,0,0,.5);}
-  /* 접힘: 겹친 카드의 '윗부분'만 보이므로 이미지+메뉴명을 상단에, 카테고리·위치는 숨김 */
-  .wcard:not(.expanded) .ptitle{top:12px;bottom:auto;}
-  .wcard:not(.expanded) .scrim{background:linear-gradient(180deg,rgba(0,0,0,.5) 0%,rgba(0,0,0,.05) 38%,transparent 58%);}
-  .wcard:not(.expanded) .pt-cat,.wcard:not(.expanded) .pt-sub,.wcard:not(.expanded) .fav{display:none;}
-  .wcard .cardref{position:absolute;top:12px;right:12px;width:38px;height:38px;border-radius:50%;border:none;
-    background:rgba(255,255,255,.95);cursor:pointer;color:#2b2b2b;display:flex;align-items:center;justify-content:center;
-    box-shadow:0 2px 9px rgba(0,0,0,.22);z-index:3;transition:transform .4s;}
-  .wcard .cardref svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;display:block;}
-  .wcard .cardref:active{transform:rotate(-180deg);}
-  .wcard .fav{position:absolute;top:14px;left:14px;font-size:11px;font-weight:800;color:#fff;
-    background:var(--coral);padding:4px 10px;border-radius:20px;box-shadow:0 2px 8px rgba(255,90,90,.45);z-index:3;}
-  .wcard .body{background:#fff;max-height:0;opacity:0;overflow:hidden;transition:max-height .42s cubic-bezier(.22,1,.36,1),opacity .3s;}
-  .wcard.expanded .body{max-height:300px;opacity:1;}
-  .wcard .bpad{padding:13px 15px 15px;}
-  .meta{font-size:12.5px;color:var(--sub);font-weight:600;display:flex;flex-wrap:wrap;gap:3px 9px;}
-  .why{font-size:12.5px;color:#465049;margin-top:10px;background:#F3FBF6;border-radius:12px;padding:9px 11px;line-height:1.55;}
-  .why b{color:var(--green-dd);}
-  .acts{display:flex;gap:8px;margin-top:12px;}
-  .btn{border:none;border-radius:13px;padding:12px 0;font-size:13.5px;font-weight:800;cursor:pointer;transition:.12s;}
-  .btn:active{transform:scale(.97);}
-  .btn.ate{flex:1.3;background:var(--green);color:#fff;}
-  .btn.order{flex:1.3;background:var(--coral-l);color:var(--coral);}
-  .btn.map{flex:0 0 58px;background:#EAF3FF;color:#2E7BF6;}
+  /* ===== 추천 카드 (2x2 정방형 · 리퀴드 글래스) ===== */
+  .deckhint{text-align:center;font-size:11.5px;color:var(--sub);margin:0 0 12px;font-weight:600;}
+  #cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
+  .wcard{position:relative;height:172px;border-radius:26px;overflow:hidden;cursor:pointer;
+    border:1px solid rgba(255,255,255,.55);box-shadow:0 8px 22px rgba(20,45,30,.16);
+    transition:height .5s cubic-bezier(.22,1,.36,1), box-shadow .35s;}
+  .wcard.expanded{grid-column:1 / -1;height:372px;box-shadow:0 16px 38px rgba(20,45,30,.26);}
+  .wcard .gphoto{position:absolute;inset:0;background:var(--mint);}
+  .wcard .gphoto img{width:100%;height:100%;object-fit:cover;display:block;}
+  .wcard .gphoto .ph-em{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:58px;}
+  .wcard .scrim{position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(0,0,0,.12) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,.10) 100%);}
+  /* 리퀴드 글래스 패널 */
+  .wcard .gpanel{position:absolute;left:9px;right:9px;bottom:9px;border-radius:20px;padding:11px 13px;
+    background:rgba(255,255,255,.32);backdrop-filter:blur(20px) saturate(1.8);-webkit-backdrop-filter:blur(20px) saturate(1.8);
+    border:1px solid rgba(255,255,255,.6);box-shadow:0 6px 20px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.7);
+    transition:background .4s;}
+  .wcard.expanded .gpanel{background:rgba(255,255,255,.55);}
+  .wcard .gname{font-size:15px;font-weight:800;color:#0f2418;letter-spacing:-.3px;display:flex;align-items:center;gap:6px;
+    text-shadow:0 1px 2px rgba(255,255,255,.5);}
+  .wcard .gname .em{font-size:16px;}
+  .wcard .gcat{font-size:10px;font-weight:800;color:var(--green-dd);background:rgba(255,255,255,.65);
+    padding:2px 7px;border-radius:20px;margin-left:auto;white-space:nowrap;}
+  .wcard .gdetail{max-height:0;opacity:0;overflow:hidden;transition:max-height .5s cubic-bezier(.22,1,.36,1),opacity .35s;}
+  .wcard.expanded .gdetail{max-height:220px;opacity:1;margin-top:10px;}
+  .gmeta{font-size:12px;color:#2e3d34;font-weight:700;display:flex;flex-wrap:wrap;gap:3px 9px;}
+  .gwhy{font-size:12px;color:#33443b;margin-top:8px;line-height:1.5;}
+  .gacts{display:flex;gap:7px;margin-top:12px;}
+  .gbtn{border:none;border-radius:13px;padding:11px 0;font-size:13px;font-weight:800;cursor:pointer;transition:transform .12s;}
+  .gbtn:active{transform:scale(.96);}
+  .gbtn.ate{flex:1.3;background:var(--green);color:#fff;}
+  .gbtn.order{flex:1.3;background:rgba(255,90,90,.92);color:#fff;}
+  .gbtn.map{flex:0 0 50px;background:rgba(255,255,255,.75);color:#2E7BF6;}
+  .wcard .gref{position:absolute;top:11px;right:11px;width:34px;height:34px;border-radius:50%;
+    background:rgba(255,255,255,.38);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.65);color:#12271b;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;z-index:3;transition:transform .4s;}
+  .wcard .gref svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+  .wcard .gref:active{transform:rotate(-180deg);}
+  .wcard .fav{position:absolute;top:11px;left:11px;font-size:10px;font-weight:800;color:#fff;
+    background:rgba(255,90,90,.92);padding:4px 9px;border-radius:20px;z-index:3;box-shadow:0 2px 8px rgba(255,90,90,.4);}
+  .wcard:not(.expanded) .fav{display:none;}
 
   .refresh{width:100%;border:2px dashed var(--green);background:transparent;color:var(--green-dd);
     border-radius:16px;padding:14px;font-size:14.5px;font-weight:800;cursor:pointer;}
@@ -230,7 +232,7 @@
           <button class="pill vote" onclick="openVote()">🗳️ 투표</button>
         </div>
       </div>
-      <p class="deckhint">카드를 탭하면 펼쳐지고, 새로고침은 그 메뉴만 바꿔요</p>
+      <p class="deckhint">카드를 탭하면 커지고, 다시 누르면 작아져요 · 🔄 는 그 메뉴만 교체</p>
       <div id="cards"></div>
       <button class="refresh" onclick="render()" style="margin-top:16px"><svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px;margin-right:6px"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg>전체 다시 추천받기</button>
       <p class="note">최근 먹은 메뉴·👎 비선호는 자동 제외<br>위치 권한을 허용하면 내 주변 실시간 식당을 불러와요 (미배포/거부 시 강남역 샘플)</p>
@@ -427,20 +429,22 @@ function paintCards(){
     const walkMin=Math.max(1,Math.round(r.dist/70));
     const pref=isPreferred(r)?` · ⭐선호 ${prefLabel(r)}`:"";
     return `<div class="wcard ${i===expandedIdx?'expanded':''}" onclick="expandCard(${i})">
-      <div class="photo">${photoHTML(r)}<div class="scrim"></div>
-        ${isFav(r)?'<span class="fav">❤️ 내 취향</span>':''}
-        <button class="cardref" onclick="event.stopPropagation();refreshCard(${i})" aria-label="이 메뉴만 바꾸기"><svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg></button>
-        <div class="ptitle"><b>${r.menu}</b><span class="pt-cat">${r.cat}</span><span class="pt-sub">📍 ${r.name} · ${r.dist}m</span></div>
-      </div>
-      <div class="body"><div class="bpad">
-        <div class="meta"><span>💰 ${r.price}</span><span>·</span><span>🚶 걸어서 ${walkMin}분</span></div>
-        <div class="why">💡 ${r.tip}${pref}</div>
-        <div class="acts">
-          <button class="btn ate" onclick="event.stopPropagation();ate(${idx(r)})">✓ 이거 먹었어요</button>
-          <button class="btn order" onclick="event.stopPropagation();order(${i})">🛵 배달</button>
-          <button class="btn map" onclick="event.stopPropagation();openPlace(${i})">🗺️</button>
+      <div class="gphoto">${photoHTML(r)}</div>
+      <div class="scrim"></div>
+      ${isFav(r)?'<span class="fav">❤️ 내 취향</span>':''}
+      <button class="gref" onclick="event.stopPropagation();refreshCard(${i})" aria-label="이 메뉴만 바꾸기"><svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg></button>
+      <div class="gpanel">
+        <div class="gname"><span class="em">${r.em}</span> ${r.menu} <span class="gcat">${r.cat}</span></div>
+        <div class="gdetail">
+          <div class="gmeta"><span>📍 ${r.name}</span><span>${r.dist}m</span>${r.price?`<span>${r.price}</span>`:''}<span>🚶 ${walkMin}분</span></div>
+          <div class="gwhy">💡 ${r.tip}${pref}</div>
+          <div class="gacts">
+            <button class="gbtn ate" onclick="event.stopPropagation();ate(${idx(r)})">✓ 먹었어요</button>
+            <button class="gbtn order" onclick="event.stopPropagation();order(${i})">🛵 배달</button>
+            <button class="gbtn map" onclick="event.stopPropagation();openPlace(${i})">🗺️</button>
+          </div>
         </div>
-      </div></div>
+      </div>
     </div>`;
   }).join("");
 }
