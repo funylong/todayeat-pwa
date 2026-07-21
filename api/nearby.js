@@ -44,9 +44,9 @@ function mapCategory(categoryName) {
   return DEFAULT;
 }
 
-async function kakao(group, lat, lng, page) {
+async function kakao(group, lat, lng, page, radius) {
   const url = `https://dapi.kakao.com/v2/local/search/category.json`
-    + `?category_group_code=${group}&x=${lng}&y=${lat}&radius=800&sort=distance&size=15&page=${page}`;
+    + `?category_group_code=${group}&x=${lng}&y=${lat}&radius=${radius}&sort=distance&size=15&page=${page}`;
   const r = await fetch(url, { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` } });
   const text = await r.text();
   let j = {}; try { j = JSON.parse(text); } catch (e) {}
@@ -60,7 +60,8 @@ module.exports = async (req, res) => {
   if (!KAKAO_KEY) { res.status(500).json({ error: "KAKAO_REST_KEY 환경변수가 설정되지 않았습니다." }); return; }
   if (!lat || !lng) { res.status(400).json({ error: "lat, lng 쿼리 파라미터가 필요합니다." }); return; }
 
-  const key = `${(+lat).toFixed(3)},${(+lng).toFixed(3)}`;
+  const radius = Math.min(2000, Math.max(300, parseInt(q.radius || "1000", 10) || 1000));
+  const key = `${(+lat).toFixed(3)},${(+lng).toFixed(3)},${radius}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.t < TTL) { res.json(hit.data); return; }
 
@@ -68,8 +69,8 @@ module.exports = async (req, res) => {
     let docs = [];
     let kakaoErr = null;
     for (const g of ["FD6", "CE7"]) {          // FD6 음식점, CE7 카페
-      for (let page = 1; page <= 2; page++) {
-        const rk = await kakao(g, lat, lng, page);
+      for (let page = 1; page <= 3; page++) {  // 더 다양한 후보 (최대 45곳/그룹)
+        const rk = await kakao(g, lat, lng, page, radius);
         if (!rk.ok && !kakaoErr) kakaoErr = { status: rk.status, body: rk.body };
         docs = docs.concat(rk.documents);
         if (rk.end || !rk.ok) break;
@@ -90,9 +91,9 @@ module.exports = async (req, res) => {
       };
     }).filter(x => { if (!x.menu || seen.has(x.menu)) return false; seen.add(x.menu); return true; })
       .sort((a, b) => a.dist - b.dist)
-      .slice(0, 20);
+      .slice(0, 45);
 
-    const data = { items, live: true, ts: Date.now() };
+    const data = { items, live: true, radius, ts: Date.now() };
     if (items.length === 0 && kakaoErr) data.debug = kakaoErr;   // 카카오가 거부한 경우 원인 표시
     cache.set(key, { t: Date.now(), data });
     res.json(data);

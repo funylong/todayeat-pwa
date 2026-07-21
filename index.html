@@ -77,6 +77,8 @@
   .gname{font-size:15px;font-weight:800;color:#0f2418;letter-spacing:-.3px;display:flex;align-items:center;gap:6px;
     text-shadow:0 1px 2px rgba(255,255,255,.5);}
   .gname .em{font-size:16px;}
+  .gcat{font-size:10px;font-weight:800;color:var(--green-dd);background:rgba(255,255,255,.7);
+    padding:2px 7px;border-radius:20px;margin-left:auto;white-space:nowrap;}
   .gmeta{font-size:12px;color:#2e3d34;font-weight:700;display:flex;flex-wrap:wrap;gap:3px 9px;}
   .gwhy{font-size:12px;color:#33443b;margin-top:8px;line-height:1.5;}
   .gacts{display:flex;gap:7px;margin-top:12px;}
@@ -347,7 +349,8 @@ let RESTAURANTS = [
   {name:"마초쉐프 강남본점",menu:"크림파스타",cat:"양식",em:"🍝",dist:613,price:"1만원대",slots:["점심","저녁"],lat:37.503408,lng:127.027873,tip:"진한 크림파스타로 든든하게",tags:["양식","파스타","면/국수"],img:"https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_6F189F1E29EFF3B7D6F52149EAB6B89E.jpg"},
 ];
 const CATS=["한식","중식","일식","양식","분식","카페","고기/구이","닭갈비","곱창","김밥","떡볶이","면/국수","라멘","파스타","마라탕/훠궈","돈카츠/카츠","초밥/회","해산물","버거","베이커리","브런치","디저트","샌드위치","샐러드","덮밥/백반","찌개/국밥","매운맛","야식"];
-const HOMECATS=["전체","한식","중식","일식","양식","분식","카페"];
+// 상단은 카테고리 대신 거리 선택 (걸어서/근처/배달)
+const DISTMODES=[{key:"walk",label:"🚶 걸어서",r:500,sub:"500m"},{key:"near",label:"🧭 근처",r:1000,sub:"1km"},{key:"deliver",label:"🛵 배달",r:2000,sub:"2km"}];
 
 // ================= 상태 =================
 const KEY="todayeat_pwa_v1";
@@ -355,6 +358,7 @@ let S=load();
 function load(){ try{const r=JSON.parse(localStorage.getItem(KEY));if(r)return r;}catch(e){} return {history:[],prefs:[],bans:[],excludeDays:3}; }
 function save(){ try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} }
 let curSlot=autoSlot(), activeCat=null;
+let distKey="near", currentRadius=1000;   // 기본 근처 1km
 function autoSlot(){const h=new Date().getHours();if(h>=6&&h<11)return "아침";if(h>=11&&h<15)return "점심";return "저녁";}
 
 const SLOT_TXT={
@@ -369,13 +373,16 @@ function paintHeader(){
   document.querySelectorAll(".slot").forEach(el=>el.classList.toggle("on",el.dataset.slot===curSlot));
   document.getElementById("recTitle").textContent=curSlot+" 추천 메뉴";
 }
-function paintCatFilter(){
-  document.getElementById("cats").innerHTML=HOMECATS.map(cName=>{
-    const on=(cName==="전체"&&!activeCat)||activeCat===cName;
-    return `<div class="catchip ${on?'on':''}" onclick="setCat('${cName}')">${cName}</div>`;
-  }).join("");
+function paintDistFilter(){
+  document.getElementById("cats").innerHTML=DISTMODES.map(m=>
+    `<div class="catchip ${distKey===m.key?'on':''}" onclick="setDist('${m.key}')">${m.label} <b style="opacity:.65">${m.sub}</b></div>`).join("");
 }
-function setCat(cName){ activeCat=(cName==="전체")?null:cName; paintCatFilter(); render(); }
+function setDist(key){
+  const m=DISTMODES.find(x=>x.key===key); if(!m) return;
+  distKey=key; currentRadius=m.r; paintDistFilter();
+  if(usingLive){ loadNearby(lastLat,lastLng); }   // 실시간: 새 반경으로 다시 조회
+  else { render(); }                               // 샘플: 반경 필터만 적용
+}
 
 // ================= 추천 로직 =================
 function catList(r){return r.tags||[r.cat];}
@@ -402,6 +409,7 @@ function eligiblePool(excludeMenus){
     .filter(r=>!isBanned(r)).filter(r=>!isDisliked(r))
     .filter(r=>!recent.includes(r.menu))
     .filter(r=>r.slots.includes(curSlot))
+    .filter(r=>!r.dist || r.dist<=currentRadius)
     .filter(r=>!activeCat||catList(r).includes(activeCat)||r.cat===activeCat)
     .filter(r=>!excludeMenus.includes(r.menu))
     .map(r=>({r,sc:score(r)})).sort((a,b)=>b.sc-a.sc).map(x=>x.r);
@@ -434,7 +442,7 @@ function paintCards(){
       <div class="scrim"></div>
       ${isFav(r)?'<span class="fav">❤️ 내 취향</span>':''}
       <button class="gref" onclick="event.stopPropagation();refreshCard(${i})" aria-label="이 메뉴만 바꾸기"><svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg></button>
-      <div class="gpanel"><div class="gname"><span class="em">${r.em}</span> ${r.menu}</div></div>
+      <div class="gpanel"><div class="gname"><span class="em">${r.em}</span> ${r.menu} <span class="gcat">${r.cat}</span></div></div>
     </div>`;
   }).join("");
 }
@@ -453,7 +461,7 @@ function renderBigContent(i){
     <div class="gpanel">
       <div class="gname"><span class="em">${r.em}</span> ${r.menu}</div>
       <div class="bigdetail">
-        <div class="gmeta"><span>📍 ${r.name}</span><span>${r.cat}</span><span>${r.dist}m</span>${r.price?`<span>${r.price}</span>`:''}<span>🚶 ${walkMin}분</span></div>
+        <div class="gmeta"><span>📍 ${r.name}</span><span>${r.dist}m</span>${r.price?`<span>${r.price}</span>`:''}${r.dist<=1000?`<span>🚶 ${walkMin}분</span>`:'<span>🛵 배달권</span>'}</div>
         <div class="gwhy">💡 ${r.tip}${pref}</div>
         <div class="gacts">
           <button class="gbtn ate" onclick="event.stopPropagation();ate(${idx(r)});closeBig()">✓ 먹었어요</button>
@@ -612,13 +620,14 @@ async function loadNearby(lat,lng){
   el.textContent="주변 식당 불러오는 중…";
   lastLat=lat; lastLng=lng;
   try{
-    const r=await fetch(`${API_BASE}/api/nearby?lat=${lat}&lng=${lng}`);
+    const r=await fetch(`${API_BASE}/api/nearby?lat=${lat}&lng=${lng}&radius=${currentRadius}`);
     if(!r.ok) throw new Error("api");
     const j=await r.json();
     if(j&&j.items&&j.items.length){
       RESTAURANTS=j.items; usingLive=true; lastNearby=j.items;
       render(); renderHistory();
-      el.textContent="현재 위치 · 실시간 주변";
+      const m=DISTMODES.find(x=>x.key===distKey);
+      el.textContent=`현재 위치 · ${m?m.sub:''} 이내`;
       toast(`주변 식당 ${j.items.length}곳을 불러왔어요`);
       return;
     }
@@ -685,7 +694,7 @@ window.addEventListener("appinstalled",()=>document.getElementById("installBar")
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js").catch(()=>{})); }
 
 // ===== 시작 =====
-initLocation(); paintCatFilter(); render(); renderHistory(); renderSettings();
+initLocation(); paintDistFilter(); render(); renderHistory(); renderSettings();
 </script>
 </body>
 </html>
