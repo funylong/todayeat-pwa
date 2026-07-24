@@ -433,6 +433,25 @@ function photoHTML(r){ return r.img
   ? `<img src="${r.img}" alt="${r.menu}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=&quot;ph-em&quot;>${r.em}</div>'">`
   : `<div class="ph-em">${r.em}</div>`; }
 
+// ===== 업체 실제 사진 (카카오 이미지검색, 상호명으로) =====
+const photoCache={};
+async function fetchPhoto(q){
+  if(photoCache[q]!==undefined) return photoCache[q];
+  try{ const r=await fetch(`${API_BASE}/api/photo?q=${encodeURIComponent(q)}`); const j=await r.json(); photoCache[q]=j.img||""; }
+  catch(e){ photoCache[q]=""; }
+  return photoCache[q];
+}
+function hydratePhotos(){
+  document.querySelectorAll('.gphoto[data-q]').forEach(async box=>{
+    if(box.dataset.done) return; box.dataset.done="1";
+    const url=await fetchPhoto(box.dataset.q);
+    if(url && document.body.contains(box)){
+      const em=box.dataset.em||"🍽️";
+      box.innerHTML=`<img src="${url}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=&quot;ph-em&quot;>${em}</div>'">`;
+    }
+  });
+}
+
 // 그리드(2x2) — 사진 + 이름만 (카테고리 배지 없음)
 function paintCards(){
   const box=document.getElementById("cards");
@@ -444,13 +463,14 @@ function paintCards(){
   }
   box.innerHTML=currentCards.map((r,i)=>{
     return `<div class="wcard" onclick="openBig(${i})">
-      <div class="gphoto">${photoHTML(r)}</div>
+      <div class="gphoto"${usingLive?` data-q="${(r.menu||'').replace(/[<>"&]/g,' ')}" data-em="${r.em}"`:''}>${photoHTML(r)}</div>
       <div class="scrim"></div>
       ${isFav(r)?'<span class="fav">❤️ 내 취향</span>':''}
       <button class="gref" onclick="event.stopPropagation();refreshCard(${i})" aria-label="이 메뉴만 바꾸기"><svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg></button>
       <div class="gpanel"><div class="gname"><span class="em">${r.em}</span> ${r.menu} <span class="gcat">${r.cat}</span></div></div>
     </div>`;
   }).join("");
+  hydratePhotos();
 }
 
 // 위로 떠오르는 확대 카드 (2x2 위 오버레이) — 탭하면 커지고, 다시 탭하면 제자리로
@@ -460,7 +480,7 @@ function renderBigContent(i){
   const pref=isPreferred(r)?` · ⭐선호 ${prefLabel(r)}`:"";
   big.style.transformOrigin=`${(i%2===0)?'27%':'73%'} ${(i<2)?'26%':'72%'}`;
   big.innerHTML=`
-    <div class="gphoto">${photoHTML(r)}</div>
+    <div class="gphoto"${usingLive?` data-q="${(r.menu||'').replace(/[<>"&]/g,' ')}" data-em="${r.em}"`:''}>${photoHTML(r)}</div>
     <div class="scrim"></div>
     <span class="closehint">✕ 닫기</span>
     <button class="gref" onclick="event.stopPropagation();refreshBig()" aria-label="이 메뉴만 바꾸기"><svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg></button>
@@ -477,6 +497,7 @@ function renderBigContent(i){
       </div>
     </div>`;
   big.onclick=closeBig;
+  hydratePhotos();
 }
 function openBig(i){
   if(bigIdx===i){ closeBig(); return; }
