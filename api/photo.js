@@ -24,14 +24,12 @@ module.exports = async (req, res) => {
   if (hit && Date.now() - hit.t < TTL) { res.json(hit.data); return; }
 
   try {
-    let img = "", kind = "";
-    const food = await search(`${q} 음식`);         // 음식 사진 우선
-    if (food.docs.length) { img = pick(food.docs); kind = "food"; }
-    if (!img) {                                      // 없으면 매장 사진
-      const place = await search(q);
-      if (place.docs.length) { img = pick(place.docs); kind = "place"; }
-    }
-    const data = { img, kind };
+    // 음식 사진만 사용. 없으면 img "" → 앱이 카테고리 대표 음식 이미지로 대체.
+    let img = "";
+    let s = await search(`${q} 음식`);
+    if (!s.docs.length) s = await search(`${q} 맛집`);   // 한 번 더 음식 위주로 시도
+    if (s.docs.length) img = pick(s.docs);
+    const data = { img, kind: img ? "food" : "" };
     cache.set(q, { t: Date.now(), data });
     res.json(data);
   } catch (e) {

@@ -15,6 +15,9 @@ const IMG = {
   분식: "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_85E59986825A70553BA680C17FAB42B9.jpg",
   카페: "https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F014%2F2023%2F02%2F08%2F0004966196_003_20230208144805118.jpg",
   버거: "https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F5312%2F2021%2F08%2F27%2F0000195075_001_20210827105421558.jpg",
+  치킨: "https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F009%2F2015%2F03%2F06%2F20150301_1425450827..jpg_99_20150306155922.jpg",
+  아시안: "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_FB776485401F1DFB3FD40C801109D7E7.jpg",
+  기타: "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2019%2F02%2F01%2F35db4e13c26d2c6172fda14b929e095d1.jpg",
 };
 
 // 카카오 카테고리 → 앱 카테고리 매핑
@@ -83,7 +86,7 @@ module.exports = async (req, res) => {
       return {
         menu: d.place_name,
         name: addr || m.cat,
-        cat: m.cat, em: m.em, img: IMG[m.cat] || "",
+        cat: m.cat, em: m.em, img: IMG[m.cat] || IMG["기타"],
         dist: parseInt(d.distance || "0", 10),
         price: "", slots: m.slots, tags: m.tags,
         tip: `가까운 ${m.cat}, 걸어서 갈 만해요`,
