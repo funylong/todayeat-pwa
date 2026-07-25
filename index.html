@@ -441,16 +441,9 @@ async function fetchPhoto(q){
   catch(e){ photoCache[q]=""; }
   return photoCache[q];
 }
-function hydratePhotos(){
-  document.querySelectorAll('.gphoto[data-q]').forEach(async box=>{
-    if(box.dataset.done) return; box.dataset.done="1";
-    const url=await fetchPhoto(box.dataset.q);
-    if(url && document.body.contains(box)){
-      const em=box.dataset.em||"🍽️";
-      box.innerHTML=`<img src="${url}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=&quot;ph-em&quot;>${em}</div>'">`;
-    }
-  });
-}
+// 매장명 이미지검색은 메뉴판·간판 등 비음식이 섞여서 사용 안 함.
+// 카드는 카테고리 대표 음식 사진(서버 제공)만 사용해 '무조건 음식'을 보장.
+function hydratePhotos(){ /* no-op */ }
 
 // 그리드(2x2) — 사진 + 이름만 (카테고리 배지 없음)
 function paintCards(){
