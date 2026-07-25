@@ -22,8 +22,14 @@ const IMG = {
     "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_2BC90D249F0ADD26D13D52F2BC7C5160.jpg",
   ],
   양식: ["https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fi.pinimg.com%2F736x%2F06%2Ff2%2Fab%2F06f2ab6acdfb81853d55ea632d5764f1.jpg"],
-  분식: ["https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_85E59986825A70553BA680C17FAB42B9.jpg"],
-  카페: ["https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F014%2F2023%2F02%2F08%2F0004966196_003_20230208144805118.jpg"],
+  분식: [
+    "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_85E59986825A70553BA680C17FAB42B9.jpg",
+    "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_60246C3F0E05B2AD74F5C1897666076A.jpg",
+  ],
+  카페: [
+    "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_E0963D139B282403E5AA469362B8C6CE.jpg",
+    "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_1E54EFF00A465EC8403D151D256170A0.jpg",
+  ],
   버거: ["https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F5312%2F2021%2F08%2F27%2F0000195075_001_20210827105421558.jpg"],
   치킨: ["https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F009%2F2015%2F03%2F06%2F20150301_1425450827..jpg_99_20150306155922.jpg"],
   아시안: ["https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_FB776485401F1DFB3FD40C801109D7E7.jpg"],
