@@ -7,18 +7,30 @@ const TTL = 5 * 60 * 1000;          // 좌표별 5분 캐시
 const cache = new Map();
 
 // 카테고리 이미지(대표 사진) — 실제 업체 사진은 제휴/플레이스 연계 단계에서 교체
+// 카테고리별 대표 음식 사진 (여러 장 → 매장마다 다르게 배정). 전부 '음식' 사진.
 const IMG = {
-  한식: "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2019%2F02%2F01%2F35db4e13c26d2c6172fda14b929e095d1.jpg",
-  중식: "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2016%2F11%2F10%2F13e59e1b2539db1196695794dea341c51.jpg%3Fw%3D1000",
-  일식: "https://search.pstatic.net/common/?type=b150&src=https%3A%2F%2Fpup-post-phinf.pstatic.net%2FMjAyNTEyMzFfMjEx%2FMDAxNzY3MTU3OTA1NTEx.JF1fKMDpbOYsodPrJAU_tuJqHMOqPilLXCaPoFO6074g.KwPOapl4V8aSlI6xkWEjbSw4Xa39muhKGPD7BQVlKqwg.JPEG%2F1C7B9387-2963-4D4C-9203-6AED4DBEED2B.jpg",
-  양식: "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fi.pinimg.com%2F736x%2F06%2Ff2%2Fab%2F06f2ab6acdfb81853d55ea632d5764f1.jpg",
-  분식: "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_85E59986825A70553BA680C17FAB42B9.jpg",
-  카페: "https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F014%2F2023%2F02%2F08%2F0004966196_003_20230208144805118.jpg",
-  버거: "https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F5312%2F2021%2F08%2F27%2F0000195075_001_20210827105421558.jpg",
-  치킨: "https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F009%2F2015%2F03%2F06%2F20150301_1425450827..jpg_99_20150306155922.jpg",
-  아시안: "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_FB776485401F1DFB3FD40C801109D7E7.jpg",
-  기타: "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2019%2F02%2F01%2F35db4e13c26d2c6172fda14b929e095d1.jpg",
+  한식: [
+    "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2019%2F02%2F01%2F35db4e13c26d2c6172fda14b929e095d1.jpg",
+    "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2020%2F03%2F24%2Fbb5e2c7c2713cf8dacb2a068c699bd9a1_f.jpg",
+  ],
+  중식: [
+    "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2016%2F11%2F10%2F13e59e1b2539db1196695794dea341c51.jpg%3Fw%3D1000",
+    "https://search.pstatic.net/common/?type=b150&src=https%3A%2F%2Fshop-phinf.pstatic.net%2F20250820_51%2F1755658363613h5DLJ_JPEG%2F31276414057650262_407014495.jpg",
+  ],
+  일식: [
+    "https://search.pstatic.net/common/?type=b150&src=https%3A%2F%2Fpup-post-phinf.pstatic.net%2FMjAyNTEyMzFfMjEx%2FMDAxNzY3MTU3OTA1NTEx.JF1fKMDpbOYsodPrJAU_tuJqHMOqPilLXCaPoFO6074g.KwPOapl4V8aSlI6xkWEjbSw4Xa39muhKGPD7BQVlKqwg.JPEG%2F1C7B9387-2963-4D4C-9203-6AED4DBEED2B.jpg",
+    "https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_2BC90D249F0ADD26D13D52F2BC7C5160.jpg",
+  ],
+  양식: ["https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fi.pinimg.com%2F736x%2F06%2Ff2%2Fab%2F06f2ab6acdfb81853d55ea632d5764f1.jpg"],
+  분식: ["https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_85E59986825A70553BA680C17FAB42B9.jpg"],
+  카페: ["https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F014%2F2023%2F02%2F08%2F0004966196_003_20230208144805118.jpg"],
+  버거: ["https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F5312%2F2021%2F08%2F27%2F0000195075_001_20210827105421558.jpg"],
+  치킨: ["https://search.pstatic.net/common/?type=b150&src=http%3A%2F%2Fimgnews.naver.net%2Fimage%2F009%2F2015%2F03%2F06%2F20150301_1425450827..jpg_99_20150306155922.jpg"],
+  아시안: ["https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Fcdn.crowdpic.net%2Fdetail-thumb%2Fthumb_d_FB776485401F1DFB3FD40C801109D7E7.jpg"],
+  기타: ["https://search.pstatic.net/sunny/?type=b150&src=https%3A%2F%2Frecipe1.ezmember.co.kr%2Fcache%2Frecipe%2F2020%2F03%2F24%2Fbb5e2c7c2713cf8dacb2a068c699bd9a1_f.jpg"],
 };
+function hashStr(s){ let h=0; s=s||""; for(let i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))>>>0; } return h; }
+function pickImg(cat, name){ const arr=IMG[cat]||IMG["기타"]; return arr[hashStr(name)%arr.length]; }
 
 // 카카오 카테고리 → 앱 카테고리 매핑
 const MAP = {
@@ -86,7 +98,7 @@ module.exports = async (req, res) => {
       return {
         menu: d.place_name,
         name: addr || m.cat,
-        cat: m.cat, em: m.em, img: IMG[m.cat] || IMG["기타"],
+        cat: m.cat, em: m.em, img: pickImg(m.cat, d.place_name),
         dist: parseInt(d.distance || "0", 10),
         price: "", slots: m.slots, tags: m.tags,
         tip: `가까운 ${m.cat}, 걸어서 갈 만해요`,
