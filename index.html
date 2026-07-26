@@ -60,8 +60,28 @@
 
   /* ===== 추천 카드 (2x2 정방형 · 리퀴드 글래스) ===== */
   .deckhint{text-align:center;font-size:11.5px;color:var(--sub);margin:0 0 12px;font-weight:600;}
-  .cardswrap{position:relative;}
-  #cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
+  #cards{display:block;}
+  /* 오늘의 원픽 히어로 */
+  .hero{position:relative;height:352px;border-radius:28px;overflow:hidden;margin-bottom:13px;
+    box-shadow:0 14px 34px rgba(20,45,30,.24);border:1px solid rgba(255,255,255,.55);}
+  .pickbadge{position:absolute;top:13px;left:13px;z-index:4;font-size:11.5px;font-weight:800;color:#fff;
+    background:linear-gradient(135deg,#FF8A5B,#FF5A5A);padding:6px 12px;border-radius:20px;box-shadow:0 3px 12px rgba(255,90,90,.45);}
+  .hero .gpanel{left:12px;right:12px;bottom:12px;padding:14px 16px;background:rgba(255,255,255,.56);}
+  .hero .gname{font-size:19px;}
+  .hero .gname .em{font-size:20px;}
+  .crave{font-size:13.5px;font-weight:800;color:#12271b;margin-top:4px;letter-spacing:-.2px;}
+  .bigdetail{margin-top:9px;}
+  /* 미니 카드 (나머지 3개) */
+  .mini-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .mini{position:relative;height:118px;border-radius:18px;overflow:hidden;cursor:pointer;
+    border:1px solid rgba(255,255,255,.5);box-shadow:0 6px 16px rgba(20,45,30,.14);transition:transform .15s;}
+  .mini:active{transform:scale(.95);}
+  .mininame{position:absolute;left:6px;right:6px;bottom:6px;border-radius:12px;padding:6px 7px;
+    background:rgba(255,255,255,.36);backdrop-filter:blur(14px) saturate(1.7);-webkit-backdrop-filter:blur(14px) saturate(1.7);
+    border:1px solid rgba(255,255,255,.55);font-size:11px;font-weight:800;color:#0f2418;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;}
+  .mini .gref{width:26px;height:26px;top:6px;right:6px;}
+  .mini .gref svg{width:13px;height:13px;}
   .wcard{position:relative;height:172px;border-radius:26px;overflow:hidden;cursor:pointer;
     border:1px solid rgba(255,255,255,.55);box-shadow:0 8px 22px rgba(20,45,30,.16);
     transition:transform .18s cubic-bezier(.22,1,.36,1), box-shadow .3s, opacity .3s;}
@@ -246,8 +266,8 @@
           <button class="pill vote" onclick="openVote()">🗳️ 투표</button>
         </div>
       </div>
-      <p class="deckhint">카드를 탭하면 위로 커지고, 다시 누르면 제자리로 · 🔄 는 그 메뉴만 교체</p>
-      <div class="cardswrap"><div id="cards"></div><div id="bigCard"></div></div>
+      <p class="deckhint">아래 3개 중 마음에 드는 걸 누르면 위로 올라와요 · 🔄 는 그 메뉴만 교체</p>
+      <div id="cards"></div>
       <button class="refresh" onclick="render()" style="margin-top:16px"><svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px;margin-right:6px"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg>전체 다시 추천받기</button>
       <p class="note">최근 먹은 메뉴·👎 비선호는 자동 제외<br>위치 권한을 허용하면 내 주변 실시간 식당을 불러와요 (미배포/거부 시 강남역 샘플)</p>
     </main>
@@ -428,8 +448,8 @@ function pickDiverse(pool,n){
   for(const r of pool){ if(chosen.length>=n) break; if(!chosen.includes(r)) chosen.push(r); }
   return chosen.slice(0,n);
 }
-let currentCards=[], bigIdx=-1;
-function render(){ paintHeader(); currentCards=pickDiverse(eligiblePool([]),4); closeBig(); paintCards(); }
+let currentCards=[], bigIdx=-1, heroIdx=0;
+function render(){ paintHeader(); currentCards=pickDiverse(eligiblePool([]),4); heroIdx=0; paintCards(); }
 function refreshCard(pos){
   const shown=currentCards.filter((_,i)=>i!==pos).map(r=>r.menu);
   const pool=eligiblePool(shown);
@@ -454,23 +474,73 @@ async function fetchPhoto(q){
 function hydratePhotos(){ /* no-op */ }
 
 // 그리드(2x2) — 사진 + 이름만 (카테고리 배지 없음)
+// 감성/식욕 카피 — 카테고리별 여러 문구를 매장별로 고정 배정 + 시간대·취향 반영
+const CRAVE={
+  한식:["집밥처럼 든든한 한 끼 🍚","밥도둑 예약이요 👀","뜨끈하게 속 채우기 딱","오늘은 한식이 당기는 날"],
+  중식:["불맛 가득 중화요리 🔥","얼큰한 국물이 당길 때","기름진 게 땡기는 날엔","불향 입힌 그 맛"],
+  일식:["정갈하게 한 그릇 🍣","신선함이 살아있는","혼밥하기에도 딱","오늘은 살짝 특별하게"],
+  양식:["포크가 멈추질 않아요 🍝","치즈 폭포가 필요할 때 🧀","분위기까지 챙기는 한 끼","진하게 크리미하게"],
+  분식:["가볍게 매콤달콤 🌶️","출출할 때 딱이죠","추억의 그 맛","부담 없이 한 입"],
+  카페:["달달하게 당 충전 🍰","커피 한 잔의 여유 ☕","디저트로 기분 전환","오늘은 카페인이 필요해"],
+  치킨:["오늘은 치맥이 진리 🍗","바삭함이 그리울 때","혼치도 좋아요","기다린 보람 있는 바삭함"],
+  버거:["육즙 가득 한 입 🍔","빠르고 든든하게","정크의 유혹","두 손으로 꽉 잡고"],
+  아시안:["이국적인 한 그릇 🍜","진한 국물이 생각날 때","색다르게 오늘","향신료의 매력"],
+  기타:["오늘의 발견 ✨","뭐 먹지 고민 끝","한 번 가볼 만해요","의외의 만족"],
+};
+function chash(s){let h=0;s=s||"";for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
+function craveLine(r){
+  const arr=CRAVE[r.cat]||CRAVE["기타"];
+  let base=arr[chash(r.menu)%arr.length];
+  if(isFav(r)) return `❤️ 취향저격 · ${base}`;
+  if(isPreferred(r)) return `⭐ 좋아하는 ${prefLabel(r)} · ${base}`;
+  const slotWord={아침:"아침 가볍게 · ",점심:"점심 든든하게 · ",저녁:"저녁엔 이거 · "}[curSlot]||"";
+  return slotWord+base;
+}
+const REFRESH_SVG=`<svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg>`;
+function dataAttr(r){ return usingLive?` data-q="${(r.menu||'').replace(/[<>"&]/g,' ')}" data-em="${r.em}"`:''; }
+
+function heroHTML(r,i){
+  const walkMin=Math.max(1,Math.round(r.dist/70));
+  return `<div class="hero">
+    <div class="gphoto"${dataAttr(r)}>${photoHTML(r)}</div><div class="scrim"></div>
+    <span class="pickbadge">🍽️ 오늘의 원픽</span>
+    <button class="gref" onclick="event.stopPropagation();refreshCard(${i})" aria-label="다른 원픽">${REFRESH_SVG}</button>
+    <div class="gpanel">
+      <div class="gname"><span class="em">${r.em}</span> ${r.menu} <span class="gcat">${r.cat}</span></div>
+      <div class="crave">${craveLine(r)}</div>
+      <div class="bigdetail">
+        <div class="gmeta"><span>📍 ${r.name}</span><span>${r.dist}m</span>${r.dist<=1000?`<span>🚶 ${walkMin}분</span>`:'<span>🛵 배달권</span>'}</div>
+        <div class="gacts">
+          <button class="gbtn ate" onclick="event.stopPropagation();ate(${idx(r)})">😋 이거 먹을래요</button>
+          <button class="gbtn order" onclick="event.stopPropagation();order(${i})">🛵 배달</button>
+          <button class="gbtn map" onclick="event.stopPropagation();openPlace(${i})">🗺️</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function miniHTML(r,i){
+  return `<div class="mini" onclick="setHero(${i})">
+    <div class="gphoto"${dataAttr(r)}>${photoHTML(r)}</div><div class="scrim"></div>
+    ${isFav(r)?'<span class="fav">❤️</span>':''}
+    <button class="gref" onclick="event.stopPropagation();refreshCard(${i})" aria-label="이 메뉴만 바꾸기">${REFRESH_SVG}</button>
+    <div class="mininame">${r.em} ${r.menu}</div>
+  </div>`;
+}
+function setHero(i){ heroIdx=i; paintCards(); }
 function paintCards(){
   const box=document.getElementById("cards");
   const total=RESTAURANTS.filter(r=>r.slots.includes(curSlot)&&!isBanned(r)&&(!activeCat||catList(r).includes(activeCat)||r.cat===activeCat)).length;
-  document.getElementById("recCnt").textContent=`주변 ${total}곳 중 · 이 중에서 골라보세요`;
+  document.getElementById("recCnt").textContent=`주변 ${total}곳 중 · 오늘의 원픽을 골라봤어요`;
   if(currentCards.length===0){
     box.innerHTML=`<div class="empty"><span class="big">🍽️</span>조건에 맞는 메뉴가 부족해요.<br>카테고리 필터나 제외 설정을 확인해보세요.</div>`;
     return;
   }
-  box.innerHTML=currentCards.map((r,i)=>{
-    return `<div class="wcard" onclick="openBig(${i})">
-      <div class="gphoto"${usingLive?` data-q="${(r.menu||'').replace(/[<>"&]/g,' ')}" data-em="${r.em}"`:''}>${photoHTML(r)}</div>
-      <div class="scrim"></div>
-      ${isFav(r)?'<span class="fav">❤️ 내 취향</span>':''}
-      <button class="gref" onclick="event.stopPropagation();refreshCard(${i})" aria-label="이 메뉴만 바꾸기"><svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg></button>
-      <div class="gpanel"><div class="gname"><span class="em">${r.em}</span> ${r.menu} <span class="gcat">${r.cat}</span></div></div>
-    </div>`;
-  }).join("");
+  if(heroIdx>=currentCards.length) heroIdx=0;
+  let html=heroHTML(currentCards[heroIdx],heroIdx);
+  const others=currentCards.map((r,i)=>({r,i})).filter(o=>o.i!==heroIdx);
+  html+=`<div class="mini-row">`+others.map(o=>miniHTML(o.r,o.i)).join("")+`</div>`;
+  box.innerHTML=html;
   hydratePhotos();
 }
 
