@@ -114,7 +114,7 @@ module.exports = async (req, res) => {
     for (const rk of results) { if (!rk.ok && !kakaoErr) kakaoErr = { status: rk.status, body: rk.body }; docs = docs.concat(rk.documents); }
 
     const seen = new Set();
-    const items = docs.map(d => {
+    const all = docs.map(d => {
       const m = mapCategory(d.category_name);
       const plat = +d.y, plng = +d.x;
       const addr = (d.road_address_name || d.address_name || "").split(" ").slice(-2).join(" ");
@@ -127,9 +127,16 @@ module.exports = async (req, res) => {
         tip: `가까운 ${m.cat}, 걸어서 갈 만해요`,
         lat: plat, lng: plng, url: d.place_url || "",
       };
-    }).filter(x => { if (!x.menu || x.dist > radius || seen.has(x.menu)) return false; seen.add(x.menu); return true; })
-      .sort((a, b) => a.dist - b.dist)
-      .slice(0, 60);
+    }).filter(x => { if (!x.menu || x.dist > radius || seen.has(x.menu)) return false; seen.add(x.menu); return true; });
+
+    // 거리 구간(밴드)별로 골고루 섞어 뽑기 — 가까운 곳에만 몰리지 않게
+    const BANDS = 4, bw = radius / BANDS, per = 16;
+    const buckets = Array.from({ length: BANDS }, () => []);
+    for (const x of all) buckets[Math.min(BANDS - 1, Math.floor(x.dist / bw))].push(x);
+    for (const b of buckets) for (let i = b.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [b[i], b[k]] = [b[k], b[i]]; }
+    let items = [];
+    for (const b of buckets) items = items.concat(b.slice(0, per));
+    items = items.sort((a, b) => a.dist - b.dist).slice(0, 60);
 
     const data = { items, live: true, radius, ts: Date.now() };
     if (items.length === 0 && kakaoErr) data.debug = kakaoErr;
