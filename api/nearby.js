@@ -74,6 +74,23 @@ async function kakao(group, lat, lng, page, radius) {
   return { ok: r.ok, status: r.status, documents: j.documents || [], end: !!(j.meta && j.meta.is_end), body: text.slice(0, 300) };
 }
 
+// 두 좌표 사이 거리(m)
+function hav(aLat, aLng, bLat, bLng) {
+  const R = 6371000, toR = x => x * Math.PI / 180;
+  const dLat = toR(bLat - aLat), dLng = toR(bLng - aLng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toR(aLat)) * Math.cos(toR(bLat)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+}
+// 검색 중심점들 — 반경이 크면 동서남북 오프셋 지점도 추가해 먼 곳까지 커버
+function centers(lat, lng, R) {
+  const pts = [{ y: lat, x: lng }];
+  if (R >= 900) {
+    const d = R * 0.55, dLat = d / 111000, dLng = d / (111000 * Math.cos(lat * Math.PI / 180));
+    pts.push({ y: lat + dLat, x: lng }, { y: lat - dLat, x: lng }, { y: lat, x: lng + dLng }, { y: lat, x: lng - dLng });
+  }
+  return pts;
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   const q = req.query || {};
@@ -81,41 +98,41 @@ module.exports = async (req, res) => {
   if (!KAKAO_KEY) { res.status(500).json({ error: "KAKAO_REST_KEY 환경변수가 설정되지 않았습니다." }); return; }
   if (!lat || !lng) { res.status(400).json({ error: "lat, lng 쿼리 파라미터가 필요합니다." }); return; }
 
+  const uLat = +lat, uLng = +lng;
   const radius = Math.min(2000, Math.max(300, parseInt(q.radius || "1000", 10) || 1000));
-  const key = `${(+lat).toFixed(3)},${(+lng).toFixed(3)},${radius}`;
+  const key = `${uLat.toFixed(3)},${uLng.toFixed(3)},${radius}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.t < TTL) { res.json(hit.data); return; }
 
   try {
-    let docs = [];
-    let kakaoErr = null;
-    for (const g of ["FD6", "CE7"]) {          // FD6 음식점, CE7 카페
-      for (let page = 1; page <= 3; page++) {  // 더 다양한 후보 (최대 45곳/그룹)
-        const rk = await kakao(g, lat, lng, page, radius);
-        if (!rk.ok && !kakaoErr) kakaoErr = { status: rk.status, body: rk.body };
-        docs = docs.concat(rk.documents);
-        if (rk.end || !rk.ok) break;
-      }
-    }
+    const pts = centers(uLat, uLng, radius);
+    const perR = pts.length > 1 ? Math.round(radius * 0.62) : radius;
+    const tasks = [];
+    for (const c of pts) for (const g of ["FD6", "CE7"]) for (let p = 1; p <= 2; p++) tasks.push(kakao(g, c.y, c.x, p, perR));
+    const results = await Promise.all(tasks);
+    let docs = [], kakaoErr = null;
+    for (const rk of results) { if (!rk.ok && !kakaoErr) kakaoErr = { status: rk.status, body: rk.body }; docs = docs.concat(rk.documents); }
+
     const seen = new Set();
     const items = docs.map(d => {
       const m = mapCategory(d.category_name);
+      const plat = +d.y, plng = +d.x;
       const addr = (d.road_address_name || d.address_name || "").split(" ").slice(-2).join(" ");
       return {
         menu: d.place_name,
         name: addr || m.cat,
         cat: m.cat, em: m.em, img: pickImg(m.cat, d.place_name),
-        dist: parseInt(d.distance || "0", 10),
+        dist: Math.round(hav(uLat, uLng, plat, plng)),   // 내 위치 기준 실제 거리
         price: "", slots: m.slots, tags: m.tags,
         tip: `가까운 ${m.cat}, 걸어서 갈 만해요`,
-        lat: +d.y, lng: +d.x, url: d.place_url || "",
+        lat: plat, lng: plng, url: d.place_url || "",
       };
-    }).filter(x => { if (!x.menu || seen.has(x.menu)) return false; seen.add(x.menu); return true; })
+    }).filter(x => { if (!x.menu || x.dist > radius || seen.has(x.menu)) return false; seen.add(x.menu); return true; })
       .sort((a, b) => a.dist - b.dist)
-      .slice(0, 45);
+      .slice(0, 60);
 
     const data = { items, live: true, radius, ts: Date.now() };
-    if (items.length === 0 && kakaoErr) data.debug = kakaoErr;   // 카카오가 거부한 경우 원인 표시
+    if (items.length === 0 && kakaoErr) data.debug = kakaoErr;
     cache.set(key, { t: Date.now(), data });
     res.json(data);
   } catch (e) {
