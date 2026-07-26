@@ -262,6 +262,7 @@
   <!-- 지도 -->
   <section class="tab" id="tab-map">
     <main style="padding-bottom:6px"><div class="rowhead"><h2>주변 지도</h2><span class="cnt" id="mapCnt"></span></div></main>
+    <div class="cats" id="mapDist" style="padding:0 16px 6px"></div>
     <div class="cats" id="mapCats" style="padding:0 16px 10px"></div>
     <div id="mapView" style="width:100%;height:60vh;background:var(--mint)"></div>
     <div id="mapFallback" style="display:none" class="empty"><span class="big">🗺️</span>지도를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.<br><br><button class="btn map" style="padding:12px 20px" onclick="openMap('내 주변 맛집')">카카오맵에서 보기</button></div>
@@ -385,9 +386,9 @@ function paintDistFilter(){
 }
 function setDist(key){
   const m=DISTMODES.find(x=>x.key===key); if(!m) return;
-  distKey=key; currentRadius=m.r; paintDistFilter();
-  if(usingLive){ loadNearby(lastLat,lastLng); }   // 실시간: 새 반경으로 다시 조회
-  else { render(); }                               // 샘플: 반경 필터만 적용
+  distKey=key; currentRadius=m.r; paintDistFilter(); if(document.getElementById("mapDist")) paintMapDist();
+  if(usingLive){ loadNearby(lastLat,lastLng); }   // 실시간: 새 반경으로 다시 조회(지도도 갱신)
+  else { render(); if(mapObj){ paintMapCats(); drawMarkers(); } }  // 샘플: 반경 필터만 적용
 }
 
 // ================= 추천 로직 =================
@@ -400,13 +401,13 @@ function histFor(menu){return S.history.find(h=>h.menu===menu);}
 function isDisliked(r){const h=histFor(r.menu);return !!(h&&h.pref==="dislike");}
 function isFav(r){const h=histFor(r.menu);return !!(h&&(h.pref==="like"||h.rating>=4));}
 function score(r){
+  // 거리는 살짝만 반영(먼 곳도 추천되게), 무작위성을 크게 → 반경 안에서 골고루
   let sc=0;
-  sc+=r.slots.includes(curSlot)?40:0;
   sc+=isPreferred(r)?25:0;
-  sc-=(r.dist/50);
+  sc-=(r.dist/400);
   const h=histFor(r.menu);
-  if(h){ if(h.pref==="like")sc+=35; if(h.rating>=4)sc+=15; else if(h.rating>0&&h.rating<=2)sc-=15; }
-  sc+=Math.random()*20;
+  if(h){ if(h.pref==="like")sc+=30; if(h.rating>=4)sc+=15; else if(h.rating>0&&h.rating<=2)sc-=15; }
+  sc+=Math.random()*60;
   return sc;
 }
 function eligiblePool(excludeMenus){
@@ -420,8 +421,15 @@ function eligiblePool(excludeMenus){
     .filter(r=>!excludeMenus.includes(r.menu))
     .map(r=>({r,sc:score(r)})).sort((a,b)=>b.sc-a.sc).map(x=>x.r);
 }
+// 서로 다른 카테고리로 다양하게 n개 선택 (부족하면 나머지로 채움)
+function pickDiverse(pool,n){
+  const chosen=[], usedCat={};
+  for(const r of pool){ if(chosen.length>=n) break; if(!usedCat[r.cat]){ chosen.push(r); usedCat[r.cat]=1; } }
+  for(const r of pool){ if(chosen.length>=n) break; if(!chosen.includes(r)) chosen.push(r); }
+  return chosen.slice(0,n);
+}
 let currentCards=[], bigIdx=-1;
-function render(){ paintHeader(); currentCards=eligiblePool([]).slice(0,4); closeBig(); paintCards(); }
+function render(){ paintHeader(); currentCards=pickDiverse(eligiblePool([]),4); closeBig(); paintCards(); }
 function refreshCard(pos){
   const shown=currentCards.filter((_,i)=>i!==pos).map(r=>r.menu);
   const pool=eligiblePool(shown);
@@ -646,6 +654,7 @@ async function loadNearby(lat,lng){
     if(j&&j.items&&j.items.length){
       RESTAURANTS=j.items; usingLive=true; lastNearby=j.items;
       render(); renderHistory();
+      if(mapObj){ paintMapCats(); drawMarkers(); }   // 지도 열려있으면 함께 갱신
       const m=DISTMODES.find(x=>x.key===distKey);
       el.textContent=`현재 위치 · ${m?m.sub:''} 이내`;
       toast(`주변 식당 ${j.items.length}곳을 불러왔어요`);
@@ -670,6 +679,10 @@ function ensureLeaflet(){
   });
 }
 function mapList(){ return (lastNearby&&lastNearby.length)?lastNearby:RESTAURANTS; }
+function paintMapDist(){
+  const el=document.getElementById("mapDist"); if(!el) return;
+  el.innerHTML=DISTMODES.map(m=>`<div class="catchip ${distKey===m.key?'on':''}" onclick="setDist('${m.key}')">${m.label} <b style="opacity:.65">${m.sub}</b></div>`).join("");
+}
 function paintMapCats(){
   const cats=["전체", ...Array.from(new Set(mapList().map(r=>r.cat)))];
   document.getElementById("mapCats").innerHTML=cats.map(c=>{
@@ -696,7 +709,7 @@ function drawMarkers(){
 }
 async function openMapTab(){
   const mv=document.getElementById("mapView"), fb=document.getElementById("mapFallback");
-  paintMapCats();
+  paintMapDist(); paintMapCats();
   const ok=await ensureLeaflet();
   if(!ok){ mv.style.display="none"; fb.style.display="block"; return; }
   fb.style.display="none"; mv.style.display="block";
