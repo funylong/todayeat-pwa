@@ -40,12 +40,32 @@ async function search(q) {
   return { ok: r.ok, status: r.status, items: j.items || [], body: text.slice(0, 200) };
 }
 
-// 음식사진(블로그·음식갤러리) 최우선 → 네이버 프록시 썸네일 → 그래도 없으면 플레이스 사진 보조
+// 제목 필터 — 검색결과 제목으로 '음식 사진'을 가려낸다 (카페 내부·매장 외관 등 비음식 제거)
+const TITLE_BAD = [
+  "내부", "인테리어", "외관", "전경", "입구", "간판", "주차", "화장실", "창업", "가맹",
+  "프랜차이즈", "익스테리어", "약도", "좌석", "전면", "외부", "매장 전경", "건물", "룸",
+];
+const TITLE_GOOD = [
+  "음식", "맛집", "먹", "메뉴", "정식", "세트", "한상", "리뷰", "돈가스", "돈까스", "짬뽕",
+  "라멘", "라면", "국밥", "백반", "파스타", "피자", "버거", "치킨", "김밥", "떡볶이", "분식",
+  "디저트", "케이크", "빵", "커피", "라떼", "브런치", "비빔", "구이", "전골", "찜", "탕",
+  "면", "초밥", "회", "샐러드", "스테이크", "곱창", "족발", "보쌈", "쌀국수", "마라", "밥",
+];
+const clean = t => { t = String(t || ""); return !TITLE_BAD.some(w => t.includes(w)); };
+const good = t => { t = String(t || ""); return TITLE_GOOD.some(w => t.includes(w)); };
+
+// 우선순위:
+//  1) FOOD(블로그·음식갤러리) — 음식 제목  2) FOOD — 최소 클린(비음식 단어 없음)
+//  3) PLACE(플레이스 DB) — 음식 제목일 때만 (카페 내부·매장 외관 방지)
+//  못 찾으면 "" → 앱이 카테고리 대표 음식사진 유지 (항상 음식 보장).
 function pick(items) {
-  for (const it of items) if (inList(it.link, FOOD)) return it.link;
-  for (const it of items) if (inList(it.thumbnail, FOOD)) return it.thumbnail;
-  for (const it of items) if (inList(it.link, PLACE)) return it.link;
-  return "";
+  const scan = (arr, url, needGood) => {
+    for (const it of items) if (inList(it[url], arr) && clean(it.title) && (!needGood || good(it.title))) return it[url];
+    return "";
+  };
+  return scan(FOOD, "link", true) || scan(FOOD, "thumbnail", true)
+      || scan(FOOD, "link", false) || scan(FOOD, "thumbnail", false)
+      || scan(PLACE, "link", true) || scan(PLACE, "thumbnail", true) || "";
 }
 
 module.exports = async (req, res) => {
