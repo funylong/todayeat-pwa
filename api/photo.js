@@ -9,24 +9,27 @@ const NAVER_SECRET = process.env.NAVER_CLIENT_SECRET;
 const cache = new Map();
 const TTL = 7 * 24 * 3600 * 1000;   // 상호별 7일 캐시
 
-// 허용: 네이버 플레이스 DB(ldb) · 네이버 블로그/포스트 CDN = 실제 음식/가게 사진 위주
-const ALLOW = [
-  "ldb-phinf.pstatic.net",        // 네이버 플레이스(지도) 등록 사진 — 실제 그 집 사진
-  "post-phinf.pstatic.net", "pup-post-phinf.pstatic.net",
-  "blogfiles.pstatic.net", "postfiles.pstatic.net",
-  "mblogthumb-phinf.pstatic.net", "blogpfthumb-phinf.pstatic.net",
+// FOOD = '접시에 담긴 실제 음식' 사진이 잘 올라오는 곳 (최우선)
+//  · 네이버 블로그/포스트 CDN  · 음식 갤러리(루리웹)
+const FOOD = [
+  "mblogthumb-phinf.pstatic.net", "blogfiles.pstatic.net", "postfiles.pstatic.net",
+  "post-phinf.pstatic.net", "pup-post-phinf.pstatic.net", "blogpfthumb-phinf.pstatic.net",
+  "ruliweb.com",
 ];
-// 차단: 뉴스·유튜브·SNS·밈·기타 커뮤니티 = 비음식/무관 노이즈
+// 플레이스 DB = 실제 그 집이지만 간판·메뉴판·외관이 섞임 → 음식사진이 없을 때만 마지막 보조
+const PLACE = ["ldb-phinf.pstatic.net"];
+// 차단: 뉴스·유튜브·위키·SNS·밈·배달 간판사진 등 = 비음식/무관 노이즈
 const DENY = [
-  "imgnews.naver.net", "youtube", "ytimg", "googleusercontent",
-  "coinpan", "cfile", "daumcdn", "tistory", "instagram", "fbcdn", "twimg", "kakaocdn",
+  "imgnews.naver.net", "youtube", "ytimg", "googleusercontent", "namu.wiki",
+  "bdtong", "diningcode", "dcinside", "coinpan", "cfile", "daumcdn", "tistory",
+  "instagram", "fbcdn", "twimg", "kakaocdn", "ppomppu",
 ];
 
-function allowed(link) {
+function inList(link, arr) {
   const u = String(link || "").toLowerCase();
   if (!u) return false;
   if (DENY.some(d => u.includes(d))) return false;
-  return ALLOW.some(a => u.includes(a));
+  return arr.some(a => u.includes(a));
 }
 
 async function search(q) {
@@ -37,9 +40,11 @@ async function search(q) {
   return { ok: r.ok, status: r.status, items: j.items || [], body: text.slice(0, 200) };
 }
 
+// 음식사진(블로그·음식갤러리) 최우선 → 네이버 프록시 썸네일 → 그래도 없으면 플레이스 사진 보조
 function pick(items) {
-  for (const it of items) if (allowed(it.link)) return it.link;            // 원본이 허용 CDN
-  for (const it of items) if (allowed(it.thumbnail)) return it.thumbnail;  // 없으면 썸네일이라도
+  for (const it of items) if (inList(it.link, FOOD)) return it.link;
+  for (const it of items) if (inList(it.thumbnail, FOOD)) return it.thumbnail;
+  for (const it of items) if (inList(it.link, PLACE)) return it.link;
   return "";
 }
 
@@ -56,7 +61,8 @@ module.exports = async (req, res) => {
 
   try {
     let img = "";
-    const tries = [`${q} 메뉴`, `${q} ${cat}`.trim(), `${q} 맛집`];
+    // '메뉴'는 메뉴판 사진을 부르므로 제외. 블로그 리뷰가 잘 걸리는 음식·맛집 위주 쿼리.
+    const tries = [`${q} 음식`, `${q} 맛집 ${cat}`.trim(), `${q} 리뷰`];
     for (const t of tries) {
       const s = await search(t);
       if (s.items.length) { img = pick(s.items); if (img) break; }
