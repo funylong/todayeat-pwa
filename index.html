@@ -70,6 +70,14 @@
   .hero .gname{font-size:19px;}
   .hero .gname .em{font-size:20px;}
   .crave{font-size:13.5px;font-weight:800;color:#12271b;margin-top:4px;letter-spacing:-.2px;}
+  /* 개인화 배지 (#3) */
+  .pbadge{display:inline-block;font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;margin-bottom:6px;letter-spacing:-.2px;
+    background:var(--mint);color:var(--green-dd);box-shadow:0 2px 6px rgba(0,0,0,.08);}
+  .pbadge.pb-fav{background:var(--coral-l);color:var(--coral);}
+  .pbadge.pb-pref{background:#FFF3D6;color:#C7860B;}
+  .pbadge.pb-new{background:#E7F0FF;color:#2E6BE6;}
+  .pbadge.pb-near{background:var(--mint);color:var(--green-dd);}
+  .pbadge.pb-deliv{background:#F0EAFE;color:#7A4BE0;}
   .bigdetail{margin-top:9px;}
   /* 미니 카드 (나머지 3개) */
   .mini-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
@@ -146,7 +154,7 @@
   .hitem .info b{font-size:15px;font-weight:800;}
   .hitem .info span{display:block;font-size:12px;color:var(--sub);margin-top:2px;}
   .hitem .del{border:none;background:none;color:#c9776f;font-size:17px;cursor:pointer;padding:4px;}
-  .fresh{font-size:10.5px;font-weight:800;color:var(--coral);background:var(--coral-l);padding:3px 8px;border-radius:20px;}
+  .fresh{font-size:10.5px;font-weight:800;color:var(--green-dd);background:var(--mint);padding:3px 8px;border-radius:20px;}
   .hrate{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
   .stars{display:flex;gap:2px;}
   .stars .st{font-size:21px;line-height:1;cursor:pointer;color:#e0e5e2;}
@@ -250,11 +258,6 @@
     </div>
   </header>
 
-  <div class="installbar" id="installBar">
-    📲 홈 화면에 추가하면 앱처럼 쓸 수 있어요
-    <button id="installBtn">설치</button>
-  </div>
-
   <!-- 추천 -->
   <section class="tab on" id="tab-home">
     <div class="cats" id="cats"></div>
@@ -298,6 +301,13 @@
     <div class="setblock"><h4>제외 기간</h4><p class="d">최근 며칠 안에 먹은 메뉴를 뺄까요?</p><div class="daysel" id="daysel"></div></div>
     <div class="setblock"><h4>선호 카테고리 <span style="color:var(--green)">⭐</span></h4><p class="d">고른 종류가 추천에서 우선 노출돼요.</p><div class="chips" id="prefChips"></div></div>
     <div class="setblock"><h4>못 먹는 / 안 먹는 음식 <span style="color:var(--coral)">🚫</span></h4><p class="d">고른 종류는 추천에서 완전히 빠집니다.</p><div class="chips" id="banChips"></div></div>
+    <div class="setblock">
+      <div class="setrow" onclick="installApp()">
+        <div class="ric" style="background:var(--mint);color:var(--green-dd)"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 20h14"/></svg></div>
+        <span class="rlbl">홈 화면에 앱 설치</span>
+        <span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+    </div>
     <div class="setblock">
       <h4>지원 &amp; 피드백</h4>
       <div class="setrow" onclick="sendFeedback('feature')">
@@ -457,21 +467,41 @@ function refreshCard(pos){
   currentCards[pos]=pool[0]; paintCards();
 }
 function idx(r){return RESTAURANTS.indexOf(r);}
-function photoHTML(r){ return r.img
-  ? `<img src="${r.img}" alt="${r.menu}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=&quot;ph-em&quot;>${r.em}</div>'">`
-  : `<div class="ph-em">${r.em}</div>`; }
-
-// ===== 업체 실제 사진 (카카오 이미지검색, 상호명으로) =====
-const photoCache={};
-async function fetchPhoto(q){
-  if(photoCache[q]!==undefined) return photoCache[q];
-  try{ const r=await fetch(`${API_BASE}/api/photo?q=${encodeURIComponent(q)}`); const j=await r.json(); photoCache[q]=j.img||""; }
-  catch(e){ photoCache[q]=""; }
-  return photoCache[q];
+function photoHTML(r){
+  const cimg=r.img||"", em=r.em;
+  return cimg
+    ? `<img src="${cimg}" data-cimg="${cimg}" data-em="${em}" data-step="1" alt="${r.menu}" loading="lazy" onerror="imgFallback(this)">`
+    : `<div class="ph-em">${em}</div>`;
 }
-// 매장명 이미지검색은 메뉴판·간판 등 비음식이 섞여서 사용 안 함.
-// 카드는 카테고리 대표 음식 사진(서버 제공)만 사용해 '무조건 음식'을 보장.
-function hydratePhotos(){ /* no-op */ }
+// 사진 폴백 순서: (실제 그 집 사진) → 카테고리 대표 음식사진 → 이모지. '무조건 음식' 보장.
+function imgFallback(img){
+  const step=img.dataset.step||"0", em=img.dataset.em||"🍽️", cimg=img.dataset.cimg||"";
+  if(step==="0"&&cimg){ img.dataset.step="1"; img.src=cimg; return; }  // 실제사진 실패 → 카테고리
+  if(img.parentNode) img.parentNode.innerHTML='<div class="ph-em">'+em+'</div>'; // 그래도 실패 → 이모지
+}
+
+// ===== 업체 실제 사진 (네이버 이미지검색 · 네이버 음식/플레이스 CDN만 채택) =====
+const photoCache={};
+async function fetchPhoto(q,cat){
+  const key=q+"|"+(cat||"");
+  if(photoCache[key]!==undefined) return photoCache[key];
+  try{ const r=await fetch(`${API_BASE}/api/photo?q=${encodeURIComponent(q)}&cat=${encodeURIComponent(cat||"")}`); const j=await r.json(); photoCache[key]=j.img||""; }
+  catch(e){ photoCache[key]=""; }
+  return photoCache[key];
+}
+// 실시간 매장은 상호명으로 실제 음식사진을 찾아 위에 덧입힌다. 실패하면 카테고리 사진 유지.
+function hydratePhotos(){
+  if(!usingLive) return;
+  document.querySelectorAll(".gphoto[data-q]").forEach(async el=>{
+    if(el.dataset.hydrated) return; el.dataset.hydrated="1";
+    const q=el.dataset.q; if(!q) return;
+    const real=await fetchPhoto(q,el.dataset.cat||"");
+    if(!real) return;
+    const img=el.querySelector("img");
+    if(img){ img.dataset.step="0"; img.src=real; }
+    else{ el.innerHTML=`<img src="${real}" data-cimg="" data-em="${el.dataset.em||"🍽️"}" data-step="0" onerror="imgFallback(this)">`; }
+  });
+}
 
 // 그리드(2x2) — 사진 + 이름만 (카테고리 배지 없음)
 // 감성/식욕 카피 — 카테고리별 여러 문구를 매장별로 고정 배정 + 시간대·취향 반영
@@ -491,13 +521,23 @@ function chash(s){let h=0;s=s||"";for(let i=0;i<s.length;i++)h=(h*31+s.charCodeA
 function craveLine(r){
   const arr=CRAVE[r.cat]||CRAVE["기타"];
   let base=arr[chash(r.menu)%arr.length];
-  if(isFav(r)) return `❤️ 취향저격 · ${base}`;
-  if(isPreferred(r)) return `⭐ 좋아하는 ${prefLabel(r)} · ${base}`;
   const slotWord={아침:"아침 가볍게 · ",점심:"점심 든든하게 · ",저녁:"저녁엔 이거 · "}[curSlot]||"";
   return slotWord+base;
 }
 const REFRESH_SVG=`<svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg>`;
-function dataAttr(r){ return usingLive?` data-q="${(r.menu||'').replace(/[<>"&]/g,' ')}" data-em="${r.em}"`:''; }
+function dataAttr(r){ return usingLive?` data-q="${(r.menu||'').replace(/[<>"&]/g,' ')}" data-em="${r.em}" data-cat="${r.cat}"`:''; }
+
+// ===== 개인화 배지 (#3) — 기록·선호 기반으로 카드에 붙는 맞춤 태그 =====
+function personaBadge(r){
+  if(isFav(r)) return {t:"❤️ 취향저격", c:"pb-fav"};
+  if(isPreferred(r)) return {t:"⭐ 좋아하는 "+prefLabel(r), c:"pb-pref"};
+  const tried=new Set(S.history.map(h=>h.cat));
+  if(S.history.length>=3 && !tried.has(r.cat)) return {t:"🆕 새로운 도전", c:"pb-new"};
+  if(r.dist && r.dist<=300) return {t:"🚶 바로 앞", c:"pb-near"};
+  if(r.dist && r.dist>1000) return {t:"🛵 배달로 즐기기", c:"pb-deliv"};
+  return null;
+}
+function personaEmoji(r){ const b=personaBadge(r); return b?b.t.split(" ")[0]:""; }
 
 function heroHTML(r,i){
   const walkMin=Math.max(1,Math.round(r.dist/70));
@@ -506,6 +546,7 @@ function heroHTML(r,i){
     <span class="pickbadge">🍽️ 오늘의 원픽</span>
     <button class="gref" onclick="event.stopPropagation();refreshCard(${i})" aria-label="다른 원픽">${REFRESH_SVG}</button>
     <div class="gpanel">
+      ${(pb=>pb?`<span class="pbadge ${pb.c}">${pb.t}</span>`:'')(personaBadge(r))}
       <div class="gname"><span class="em">${r.em}</span> ${r.menu} <span class="gcat">${r.cat}</span></div>
       <div class="crave">${craveLine(r)}</div>
       <div class="bigdetail">
@@ -522,7 +563,7 @@ function heroHTML(r,i){
 function miniHTML(r,i){
   return `<div class="mini" onclick="setHero(${i})">
     <div class="gphoto"${dataAttr(r)}>${photoHTML(r)}</div><div class="scrim"></div>
-    ${isFav(r)?'<span class="fav">❤️</span>':''}
+    ${(e=>e?`<span class="fav">${e}</span>`:'')(personaEmoji(r))}
     <button class="gref" onclick="event.stopPropagation();refreshCard(${i})" aria-label="이 메뉴만 바꾸기">${REFRESH_SVG}</button>
     <div class="mininame">${r.em} ${r.menu}</div>
   </div>`;
@@ -551,7 +592,7 @@ function renderBigContent(i){
   const pref=isPreferred(r)?` · ⭐선호 ${prefLabel(r)}`:"";
   big.style.transformOrigin=`${(i%2===0)?'27%':'73%'} ${(i<2)?'26%':'72%'}`;
   big.innerHTML=`
-    <div class="gphoto"${usingLive?` data-q="${(r.menu||'').replace(/[<>"&]/g,' ')}" data-em="${r.em}"`:''}>${photoHTML(r)}</div>
+    <div class="gphoto"${dataAttr(r)}>${photoHTML(r)}</div>
     <div class="scrim"></div>
     <span class="closehint">✕ 닫기</span>
     <button class="gref" onclick="event.stopPropagation();refreshBig()" aria-label="이 메뉴만 바꾸기"><svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg></button>
@@ -594,7 +635,7 @@ function refreshBig(){
 // ================= 액션 =================
 function ate(i){ const r=RESTAURANTS[i];
   S.history.unshift({menu:r.menu,cat:r.cat,em:r.em,img:r.img,name:r.name,ts:Date.now(),rating:0,pref:null});
-  save(); toast(`"${r.menu}" 기록 완료 · ${S.excludeDays}일간 제외`); render(); renderHistory();
+  save(); toast(`😋 "${r.menu}" 먹을래요! 기록에 담았어요`); render(); renderHistory();
 }
 function order(i){ const r=currentCards[i]; toast(`실제 앱에선 배달앱으로 연결돼요 (${r.menu})`); }
 function openMap(q){ window.open("https://map.naver.com/v5/search/"+encodeURIComponent(q),"_blank"); toast("지도로 위치를 확인하세요"); }
@@ -606,7 +647,7 @@ function delHist(i){ S.history.splice(i,1); save(); renderHistory(); render(); t
 function renderHistory(){
   const box=document.getElementById("history");
   document.getElementById("logCnt").textContent=S.history.length?`${S.history.length}개`:"";
-  if(S.history.length===0){ box.innerHTML=`<div class="empty"><span class="big">📝</span>아직 기록이 없어요.<br>추천에서 "이거 먹었어요"를 눌러보세요.</div>`; return; }
+  if(S.history.length===0){ box.innerHTML=`<div class="empty"><span class="big">📝</span>아직 기록이 없어요.<br>추천에서 "이거 먹을래요"를 눌러보세요.</div>`; return; }
   const cut=Date.now()-S.excludeDays*864e5;
   box.innerHTML=S.history.map((h,i)=>{
     const fresh=h.ts>=cut, rating=h.rating||0;
@@ -615,7 +656,7 @@ function renderHistory(){
       <div class="hrow">
         <div class="em">${h.img?`<img src="${h.img}" onerror="this.remove();this.parentNode.textContent='${h.em}'">`:h.em}</div>
         <div class="info"><b>${h.menu}</b><span>${h.name} · ${h.cat} · ${timeAgo(h.ts)}</span></div>
-        ${fresh?'<span class="fresh">추천 제외중</span>':''}
+        ${fresh?'<span class="fresh">😋 먹을래요</span>':''}
         <button class="del" onclick="delHist(${i})">🗑️</button>
       </div>
       <div class="hrate">
@@ -800,13 +841,15 @@ function initLocation(){ const el=document.getElementById("locText");
   } else el.textContent="강남역 부근 (샘플)";
 }
 
-// ===== PWA: 설치 프롬프트 & 서비스워커 =====
+// ===== PWA: 설치 프롬프트 & 서비스워커 (설정에서만 노출) =====
 let deferredPrompt=null;
-window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; document.getElementById("installBar").classList.add("on"); });
-document.getElementById("installBtn").onclick=async()=>{
-  if(!deferredPrompt)return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; document.getElementById("installBar").classList.remove("on");
-};
-window.addEventListener("appinstalled",()=>document.getElementById("installBar").classList.remove("on"));
+window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; });
+async function installApp(){
+  if(deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; return; }
+  if(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches){ toast("이미 홈 화면에 설치돼 있어요"); return; }
+  toast("아이폰: 공유 → 홈 화면에 추가 / 안드로이드: 메뉴 → 앱 설치");
+}
+window.addEventListener("appinstalled",()=>{ deferredPrompt=null; toast("홈 화면에 설치됐어요 🎉"); });
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js").catch(()=>{})); }
 
 // ===== 시작 =====
