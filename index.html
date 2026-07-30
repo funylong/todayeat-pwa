@@ -143,6 +143,34 @@
   .refresh:active{background:var(--mint);}
   .note{font-size:11.5px;color:var(--sub);text-align:center;margin-top:14px;line-height:1.7;}
 
+  /* ===== 🎰 룰렛 버튼 ===== */
+  .rouletteBtn{width:100%;margin-top:16px;border:none;border-radius:16px;padding:15px;cursor:pointer;
+    font-size:15px;font-weight:900;color:#fff;letter-spacing:-.3px;
+    background:linear-gradient(135deg,#FF8A5B,#FF5A5A 55%,#E84393);box-shadow:0 6px 18px rgba(232,67,147,.35);}
+  .rouletteBtn:active{transform:scale(.98);}
+  .rouletteBtn .rico{font-size:17px;margin-right:2px;}
+  @keyframes heroShake{0%,100%{transform:translateY(0)}25%{transform:translateY(-4px)}75%{transform:translateY(4px)}}
+  @keyframes heroPop{0%{transform:scale(1)}40%{transform:scale(1.035)}100%{transform:scale(1)}}
+  .hero.spin{animation:heroShake .18s linear infinite;}
+  .hero.spin .gphoto{filter:saturate(1.15) blur(1px);}
+  .hero.land{animation:heroPop .6s cubic-bezier(.2,1.4,.4,1);box-shadow:0 0 0 4px var(--green),0 10px 28px rgba(0,232,95,.35);}
+
+  /* ===== 🏅 뱃지 보드 ===== */
+  #badgeBoard{margin-bottom:16px;}
+  .bhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:15px;color:#12271b;}
+  .bhead .bcnt{color:var(--green-dd);margin-left:4px;}
+  .streaknow{font-size:12px;font-weight:800;color:#C7860B;background:#FFF3D6;padding:5px 11px;border-radius:20px;}
+  .badgegrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;}
+  .badge{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;
+    border-radius:14px;padding:11px 5px 9px;border:1px solid var(--line);background:var(--card);}
+  .badge .bem{font-size:23px;line-height:1;}
+  .badge .bt{font-size:10.5px;font-weight:800;color:#12271b;letter-spacing:-.3px;}
+  .badge .bp{font-size:9.5px;font-weight:800;}
+  .badge.got{background:var(--mint);border-color:var(--mint2);}
+  .badge.got .bp{color:var(--green-dd);}
+  .badge.lock{opacity:.55;filter:grayscale(.7);}
+  .badge.lock .bp{color:var(--sub);}
+
   /* ===== history ===== */
   .hitem{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 15px;margin-bottom:11px;
     box-shadow:0 2px 8px rgba(30,50,40,.04);}
@@ -271,7 +299,8 @@
       </div>
       <p class="deckhint">아래 3개 중 마음에 드는 걸 누르면 위로 올라와요 · 🔄 는 그 메뉴만 교체</p>
       <div id="cards"></div>
-      <button class="refresh" onclick="render()" style="margin-top:16px"><svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px;margin-right:6px"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg>전체 다시 추천받기</button>
+      <button class="rouletteBtn" onclick="rouletteSpin()"><span class="rico">🎰</span> 못 고르겠다면? 룰렛으로 뽑기!</button>
+      <button class="refresh" onclick="render()" style="margin-top:12px"><svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px;margin-right:6px"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L20 9"/><path d="M20 4v5h-5"/><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4 15"/><path d="M4 20v-5h5"/></svg>전체 다시 추천받기</button>
       <p class="note">최근 먹은 메뉴·👎 비선호는 자동 제외<br>위치 권한을 허용하면 내 주변 실시간 식당을 불러와요 (미배포/거부 시 강남역 샘플)</p>
     </main>
   </section>
@@ -279,6 +308,7 @@
   <!-- 기록 -->
   <section class="tab" id="tab-log"><main>
     <div class="rowhead"><h2>먹은 기록</h2><span class="cnt" id="logCnt"></span></div>
+    <div id="badgeBoard"></div>
     <div id="history"></div>
   </main></section>
 
@@ -392,7 +422,7 @@ const DISTMODES=[{key:"walk",label:"🚶 걸어서",r:500,sub:"500m"},{key:"near
 // ================= 상태 =================
 const KEY="todayeat_pwa_v1";
 let S=load();
-function load(){ try{const r=JSON.parse(localStorage.getItem(KEY));if(r)return r;}catch(e){} return {history:[],prefs:[],bans:[],excludeDays:3}; }
+function load(){ try{const r=JSON.parse(localStorage.getItem(KEY));if(r){r.badges=r.badges||[];return r;}}catch(e){} return {history:[],prefs:[],bans:[],excludeDays:3,badges:[]}; }
 function save(){ try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} }
 let curSlot=autoSlot(), activeCat=null;
 let distKey="near", currentRadius=1000;   // 기본 근처 1km
@@ -459,7 +489,7 @@ function pickDiverse(pool,n){
   return chosen.slice(0,n);
 }
 let currentCards=[], bigIdx=-1, heroIdx=0;
-function render(){ paintHeader(); currentCards=pickDiverse(eligiblePool([]),4); heroIdx=0; paintCards(); }
+function render(){ heroVia=null; paintHeader(); currentCards=pickDiverse(eligiblePool([]),4); heroIdx=0; paintCards(); }
 function refreshCard(pos){
   const shown=currentCards.filter((_,i)=>i!==pos).map(r=>r.menu);
   const pool=eligiblePool(shown);
@@ -568,7 +598,39 @@ function miniHTML(r,i){
     <div class="mininame">${r.em} ${r.menu}</div>
   </div>`;
 }
-function setHero(i){ heroIdx=i; paintCards(); }
+function setHero(i){ heroVia=null; heroIdx=i; paintCards(); }
+
+// ================= 🎰 룰렛/뽑기 =================
+let spinning=false;
+function rouletteSpin(){
+  if(spinning) return;
+  const pool=eligiblePool([]);
+  if(pool.length<2){ toast("뽑을 메뉴가 부족해요"); return; }
+  spinning=true;
+  const winner=pool[Math.floor(Math.random()*pool.length)];
+  // 원픽 카드가 없으면 먼저 렌더
+  if(!currentCards.length){ currentCards=pickDiverse(pool,4); heroIdx=0; }
+  const hero=document.querySelector("#cards .hero");
+  if(hero) hero.classList.add("spin");
+  let delay=60, elapsed=0, total=1600;
+  const nameEl=()=>document.querySelector("#cards .hero .gname");
+  const photoEl=()=>document.querySelector("#cards .hero .gphoto");
+  function tick(){
+    const r=pool[Math.floor(Math.random()*pool.length)];
+    const n=nameEl(); if(n) n.innerHTML=`<span class="em">${r.em}</span> ${r.menu} <span class="gcat">${r.cat}</span>`;
+    const p=photoEl(); if(p){ p.removeAttribute("data-hydrated"); p.innerHTML=photoHTML(r); }
+    elapsed+=delay; delay*=1.18;   // 점점 느려지는 감속
+    if(elapsed<total){ setTimeout(tick,delay); }
+    else{
+      // 착지: 당첨 메뉴를 원픽으로
+      currentCards[heroIdx]=winner; heroVia="roulette"; spinning=false;
+      paintCards();
+      const h2=document.querySelector("#cards .hero"); if(h2){ h2.classList.remove("spin"); h2.classList.add("land"); setTimeout(()=>h2.classList.remove("land"),700); }
+      toast(`🎉 오늘의 뽑기 · ${winner.em} ${winner.menu}!`);
+    }
+  }
+  tick();
+}
 function paintCards(){
   const box=document.getElementById("cards");
   const total=RESTAURANTS.filter(r=>r.slots.includes(curSlot)&&!isBanned(r)&&(!activeCat||catList(r).includes(activeCat)||r.cat===activeCat)).length;
@@ -633,9 +695,10 @@ function refreshBig(){
 }
 
 // ================= 액션 =================
+let heroVia=null;   // 원픽이 룰렛으로 뽑혔는지 표시 (뱃지 🎰 연동)
 function ate(i){ const r=RESTAURANTS[i];
-  S.history.unshift({menu:r.menu,cat:r.cat,em:r.em,img:r.img,name:r.name,ts:Date.now(),rating:0,pref:null});
-  save(); toast(`😋 "${r.menu}" 먹을래요! 기록에 담았어요`); render(); renderHistory();
+  S.history.unshift({menu:r.menu,cat:r.cat,em:r.em,img:r.img,name:r.name,ts:Date.now(),rating:0,pref:null,slot:curSlot,via:heroVia||null});
+  save(); toast(`😋 "${r.menu}" 먹을래요! 기록에 담았어요`); checkBadges(); render(); renderHistory();
 }
 function order(i){ const r=currentCards[i]; toast(`실제 앱에선 배달앱으로 연결돼요 (${r.menu})`); }
 function openMap(q){ window.open("https://map.naver.com/v5/search/"+encodeURIComponent(q),"_blank"); toast("지도로 위치를 확인하세요"); }
@@ -645,6 +708,7 @@ function openPlace(i){ const r=currentCards[i];
 function delHist(i){ S.history.splice(i,1); save(); renderHistory(); render(); toast("기록을 삭제했어요"); }
 
 function renderHistory(){
+  renderBadges();
   const box=document.getElementById("history");
   document.getElementById("logCnt").textContent=S.history.length?`${S.history.length}개`:"";
   if(S.history.length===0){ box.innerHTML=`<div class="empty"><span class="big">📝</span>아직 기록이 없어요.<br>추천에서 "이거 먹을래요"를 눌러보세요.</div>`; return; }
@@ -669,11 +733,80 @@ function renderHistory(){
     </div>`;
   }).join("");
 }
-function setRating(i,n){ const h=S.history[i]; h.rating=(h.rating===n)?0:n; save(); renderHistory(); render(); toast(h.rating?`${h.menu} ★${h.rating}점`:"별점을 지웠어요"); }
+function setRating(i,n){ const h=S.history[i]; h.rating=(h.rating===n)?0:n; save(); checkBadges(); renderHistory(); render(); toast(h.rating?`${h.menu} ★${h.rating}점`:"별점을 지웠어요"); }
 function setPref(i,p){ const h=S.history[i]; h.pref=(h.pref===p)?null:p; save(); renderHistory(); render();
   toast(h.pref==="like"?`${h.menu} 선호 · 추천에 더 자주`:h.pref==="dislike"?`${h.menu} 비선호 · 추천 제외`:"표시를 해제했어요"); }
 function timeAgo(ts){ const d=Math.floor((Date.now()-ts)/1000);
   if(d<60)return "방금"; if(d<3600)return Math.floor(d/60)+"분 전"; if(d<86400)return Math.floor(d/3600)+"시간 전"; return Math.floor(d/86400)+"일 전"; }
+
+// ================= 🏅 연속 기록 · 뱃지 =================
+function dayKey(ts){ const d=new Date(ts); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+function streaks(){
+  const days=[...new Set(S.history.map(h=>dayKey(h.ts)))].map(k=>{const[y,m,d]=k.split("-").map(Number);return new Date(y,m-1,d).getTime();}).sort((a,b)=>a-b);
+  let max=0,run=0,prev=null;
+  for(const t of days){ if(prev!==null&&t-prev===864e5) run++; else run=1; if(run>max)max=run; prev=t; }
+  // 현재 연속: 오늘 또는 어제부터 뒤로
+  const today=new Date(); today.setHours(0,0,0,0); const t0=today.getTime();
+  let cur=0, cursor=t0;
+  const set=new Set(days);
+  if(!set.has(t0)&&set.has(t0-864e5)) cursor=t0-864e5;   // 오늘 아직이면 어제 기준
+  while(set.has(cursor)){ cur++; cursor-=864e5; }
+  return {max,cur};
+}
+function historyStats(){
+  const H=S.history, s=streaks();
+  const cats=new Set(H.map(h=>h.cat));
+  const counts={}; H.forEach(h=>counts[h.menu]=(counts[h.menu]||0)+1);
+  const revisit=H.length?Math.max(...Object.values(counts)):0;
+  return {
+    total:H.length, maxStreak:s.max, curStreak:s.cur, catCount:cats.size,
+    ratings:H.filter(h=>h.rating>0).length, morning:H.filter(h=>h.slot==="아침").length,
+    dinner:H.filter(h=>h.slot==="저녁").length, cafe:H.filter(h=>h.cat==="카페").length,
+    roulette:H.filter(h=>h.via==="roulette").length, revisitMax:revisit,
+    distinctMenus:new Set(H.map(h=>h.menu)).size,
+  };
+}
+const BADGES=[
+  {id:"first",   em:"🍽️", t:"첫 끼",        d:"첫 메뉴 기록",        goal:1,  val:s=>s.total},
+  {id:"reg10",   em:"🍚", t:"단골",         d:"메뉴 10개 기록",      goal:10, val:s=>s.total},
+  {id:"reg50",   em:"🏆", t:"백반백승",     d:"메뉴 50개 기록",      goal:50, val:s=>s.total},
+  {id:"streak3", em:"🔥", t:"3일 연속",     d:"3일 연속 기록",       goal:3,  val:s=>s.maxStreak},
+  {id:"streak7", em:"🔥", t:"일주일 개근",  d:"7일 연속 기록",       goal:7,  val:s=>s.maxStreak},
+  {id:"variety5",em:"🌈", t:"미식가",       d:"서로 다른 종류 5가지",goal:5,  val:s=>s.catCount},
+  {id:"conquer", em:"🗺️", t:"카테고리 정복",d:"종류 10가지 도전",    goal:10, val:s=>s.catCount},
+  {id:"newbie10",em:"🆕", t:"도전왕",       d:"새 메뉴 10가지",      goal:10, val:s=>s.distinctMenus},
+  {id:"critic",  em:"⭐", t:"평론가",       d:"별점 10회 남기기",    goal:10, val:s=>s.ratings},
+  {id:"revisit3",em:"❤️", t:"찐사랑",       d:"같은 메뉴 3번 먹기",  goal:3,  val:s=>s.revisitMax},
+  {id:"night10", em:"🍗", t:"야식러",       d:"저녁 메뉴 10회",      goal:10, val:s=>s.dinner},
+  {id:"morning3",em:"🌅", t:"아침 챙김",    d:"아침 메뉴 3회",       goal:3,  val:s=>s.morning},
+  {id:"cafe5",   em:"☕", t:"카페인 러버",  d:"카페 5회",            goal:5,  val:s=>s.cafe},
+  {id:"lucky5",  em:"🎰", t:"럭키드로우",   d:"룰렛으로 5번 뽑기",   goal:5,  val:s=>s.roulette},
+];
+function checkBadges(){
+  const s=historyStats();
+  const earned=BADGES.filter(b=>b.val(s)>=b.goal).map(b=>b.id);
+  const prev=S.badges||[];
+  const fresh=earned.filter(id=>!prev.includes(id));
+  S.badges=earned; save();
+  if(fresh.length){ const b=BADGES.find(x=>x.id===fresh[0]); setTimeout(()=>toast(`🏅 새 뱃지 획득 · ${b.em} ${b.t}`),700); }
+  renderBadges();
+}
+function renderBadges(){
+  const box=document.getElementById("badgeBoard"); if(!box) return;
+  const s=historyStats();
+  const earnedCnt=BADGES.filter(b=>b.val(s)>=b.goal).length;
+  const streakLine=s.curStreak>=2?`<span class="streaknow">🔥 ${s.curStreak}일 연속 기록 중!</span>`:"";
+  const chips=BADGES.map(b=>{
+    const v=b.val(s), got=v>=b.goal;
+    return `<div class="badge ${got?'got':'lock'}" title="${b.d}">
+      <span class="bem">${b.em}</span>
+      <span class="bt">${b.t}</span>
+      <span class="bp">${got?'획득 ✓':Math.min(v,b.goal)+'/'+b.goal}</span>
+    </div>`;
+  }).join("");
+  box.innerHTML=`<div class="bhead"><b>🏅 내 뱃지 <span class="bcnt">${earnedCnt}/${BADGES.length}</span></b>${streakLine}</div>
+    <div class="badgegrid">${chips}</div>`;
+}
 
 // ================= 설정 =================
 function renderSettings(){
