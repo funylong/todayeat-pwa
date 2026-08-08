@@ -171,6 +171,28 @@
   .badge.lock{opacity:.55;filter:grayscale(.7);}
   .badge.lock .bp{color:var(--sub);}
 
+  /* ===== 사먹기/해먹기 모드 토글 ===== */
+  .modebar{display:flex;gap:6px;margin:14px 16px 0;background:#eaf1ee;padding:4px;border-radius:14px;}
+  .modebtn{flex:1;border:none;background:transparent;border-radius:11px;padding:11px 0;font-size:14px;font-weight:900;
+    color:var(--sub);cursor:pointer;letter-spacing:-.3px;transition:.15s;}
+  .modebtn.on{background:#fff;color:var(--green-dd);box-shadow:0 2px 8px rgba(0,0,0,.09);}
+  .pickbadge.home{background:linear-gradient(135deg,#3CC86B,#00A847);box-shadow:0 3px 12px rgba(0,168,71,.4);}
+  .gbtn.recipe{background:var(--green);color:#fff;}
+
+  /* ===== 레시피 시트 ===== */
+  #recipeSheet .recmeta{font-size:12.5px;font-weight:800;color:var(--green-dd);margin:6px 0 4px;}
+  .recsec{margin-top:15px;}
+  .recsec h4{font-size:14.5px;font-weight:900;color:#12271b;margin-bottom:8px;}
+  .ing{list-style:none;display:flex;flex-wrap:wrap;gap:7px;}
+  .ing li{background:var(--mint);color:var(--green-dd);font-size:12.5px;font-weight:700;padding:6px 11px;border-radius:20px;}
+  .steps{list-style:none;counter-reset:none;}
+  .steps li{display:flex;gap:11px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13.5px;line-height:1.5;color:#28382f;}
+  .steps li:last-child{border-bottom:none;}
+  .steps .sn{flex-shrink:0;width:23px;height:23px;border-radius:50%;background:var(--green);color:#fff;font-size:12px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;margin-top:1px;}
+  .rectip{margin-top:14px;background:#FFF3D6;color:#8a6410;font-size:12.5px;font-weight:700;padding:11px 13px;border-radius:12px;line-height:1.5;}
+  .reclink{display:block;text-align:center;text-decoration:none;margin-top:16px;}
+
   /* ===== history ===== */
   .hitem{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 15px;margin-bottom:11px;
     box-shadow:0 2px 8px rgba(30,50,40,.04);}
@@ -288,6 +310,10 @@
 
   <!-- 추천 -->
   <section class="tab on" id="tab-home">
+    <div class="modebar">
+      <button class="modebtn on" data-mode="out" onclick="setMode('out')">🍴 사먹기</button>
+      <button class="modebtn" data-mode="home" onclick="setMode('home')">🍳 해먹기</button>
+    </div>
     <div class="cats" id="cats"></div>
     <main>
       <div class="rowhead">
@@ -389,6 +415,9 @@
   <button class="close" onclick="closeCoffee()">다음에요</button>
 </div></div>
 
+<!-- 레시피 상세 -->
+<div class="overlay" id="recipeOverlay"><div class="sheet" id="recipeSheet"></div></div>
+
 <script>
 // ================= 데이터 =================
 // 기본값은 강남역 샘플(네이버 지역검색). 위치 권한 허용 시 카카오 실시간 데이터로 교체된다.
@@ -425,6 +454,8 @@ let S=load();
 function load(){ try{const r=JSON.parse(localStorage.getItem(KEY));if(r){r.badges=r.badges||[];return r;}}catch(e){} return {history:[],prefs:[],bans:[],excludeDays:3,badges:[]}; }
 function save(){ try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} }
 let curSlot=autoSlot(), activeCat=null;
+let mode="out";   // "out"=사먹기(식당) · "home"=해먹기(집밥)
+function refreshMode(){ mode==="home"?renderHome():render(); }
 let distKey="near", currentRadius=1000;   // 기본 근처 1km
 function autoSlot(){const h=new Date().getHours();if(h>=6&&h<11)return "아침";if(h>=11&&h<15)return "점심";return "저녁";}
 
@@ -438,7 +469,7 @@ function paintHeader(){
   document.getElementById("greet").innerHTML=`<span class="em">${t.em}</span> ${t.g}`;
   document.getElementById("greetSub").textContent=t.s;
   document.querySelectorAll(".slot").forEach(el=>el.classList.toggle("on",el.dataset.slot===curSlot));
-  document.getElementById("recTitle").textContent=curSlot+" 추천 메뉴";
+  document.getElementById("recTitle").textContent=mode==="home"?curSlot+" 뭐 해먹지":curSlot+" 추천 메뉴";
 }
 function paintDistFilter(){
   document.getElementById("cats").innerHTML=DISTMODES.map(m=>
@@ -521,7 +552,7 @@ async function fetchPhoto(q,cat){
 }
 // 실시간 매장은 상호명으로 실제 음식사진을 찾아 위에 덧입힌다. 실패하면 카테고리 사진 유지.
 function hydratePhotos(){
-  if(!usingLive) return;
+  if(!usingLive && mode!=="home") return;
   document.querySelectorAll(".gphoto[data-q]").forEach(async el=>{
     if(el.dataset.hydrated) return; el.dataset.hydrated="1";
     const q=el.dataset.q; if(!q) return;
@@ -600,37 +631,238 @@ function miniHTML(r,i){
 }
 function setHero(i){ heroVia=null; heroIdx=i; paintCards(); }
 
-// ================= 🎰 룰렛/뽑기 =================
+// ================= 🎰 룰렛/뽑기 (사먹기·해먹기 공용) =================
 let spinning=false;
 function rouletteSpin(){
   if(spinning) return;
-  const pool=eligiblePool([]);
-  if(pool.length<2){ toast("뽑을 메뉴가 부족해요"); return; }
+  const home=mode==="home";
+  const pool=home?homePool([]):eligiblePool([]);
+  if(pool.length<2){ toast(home?"뽑을 요리가 부족해요":"뽑을 메뉴가 부족해요"); return; }
   spinning=true;
   const winner=pool[Math.floor(Math.random()*pool.length)];
-  // 원픽 카드가 없으면 먼저 렌더
-  if(!currentCards.length){ currentCards=pickDiverse(pool,4); heroIdx=0; }
+  if(home){ if(!homeCards.length){ homeCards=pickDiverse(pool,4); heroIdx=0; } }
+  else{ if(!currentCards.length){ currentCards=pickDiverse(pool,4); heroIdx=0; } }
   const hero=document.querySelector("#cards .hero");
   if(hero) hero.classList.add("spin");
   let delay=60, elapsed=0, total=1600;
-  const nameEl=()=>document.querySelector("#cards .hero .gname");
-  const photoEl=()=>document.querySelector("#cards .hero .gphoto");
   function tick(){
     const r=pool[Math.floor(Math.random()*pool.length)];
-    const n=nameEl(); if(n) n.innerHTML=`<span class="em">${r.em}</span> ${r.menu} <span class="gcat">${r.cat}</span>`;
-    const p=photoEl(); if(p){ p.removeAttribute("data-hydrated"); p.innerHTML=photoHTML(r); }
-    elapsed+=delay; delay*=1.18;   // 점점 느려지는 감속
+    const n=document.querySelector("#cards .hero .gname");
+    if(n) n.innerHTML=`<span class="em">${r.em}</span> ${r.menu} <span class="gcat">${r.cat}</span>`;
+    const p=document.querySelector("#cards .hero .gphoto");
+    if(p){ p.removeAttribute("data-hydrated"); p.innerHTML=photoHTML(r); }
+    elapsed+=delay; delay*=1.18;
     if(elapsed<total){ setTimeout(tick,delay); }
     else{
-      // 착지: 당첨 메뉴를 원픽으로
-      currentCards[heroIdx]=winner; heroVia="roulette"; spinning=false;
-      paintCards();
+      if(home){ homeCards[heroIdx]=winner; } else { currentCards[heroIdx]=winner; }
+      heroVia="roulette"; spinning=false;
+      home?paintHome():paintCards();
       const h2=document.querySelector("#cards .hero"); if(h2){ h2.classList.remove("spin"); h2.classList.add("land"); setTimeout(()=>h2.classList.remove("land"),700); }
       toast(`🎉 오늘의 뽑기 · ${winner.em} ${winner.menu}!`);
     }
   }
   tick();
 }
+// ================= 🍳 해먹기(집밥) 모드 =================
+const HOMEDISHES=[
+  {id:"kimchibokkeum",menu:"김치볶음밥",em:"🍚",cat:"한식",slots:["점심","저녁"],level:"쉬움",min:15,serves:"1~2인",
+    ing:["밥 1공기","잘 익은 김치 1컵","대파·양파 조금","식용유·참기름","계란 1개","김가루·깨"],
+    steps:["김치는 잘게 썰고, 팬에 식용유 두르고 대파를 볶아 파기름을 내요.","김치를 넣고 3~4분 볶아 신맛을 날려요.","밥을 넣고 김치국물 조금과 함께 골고루 볶아요.","참기름·깨로 마무리하고, 계란프라이를 올려요."],
+    tip:"김치가 시면 설탕 한 꼬집이면 균형이 잡혀요."},
+  {id:"gyeranbokkeum",menu:"계란볶음밥",em:"🍳",cat:"한식",slots:["아침","점심"],level:"쉬움",min:12,serves:"1인",
+    ing:["밥 1공기","계란 2개","대파","간장 1작은술","식용유·참기름","소금·후추"],
+    steps:["계란을 풀어 스크램블로 살짝 익혀 덜어둬요.","팬에 파기름을 내고 밥을 넣어 볶아요.","간장을 팬 가장자리에 둘러 불향을 내요.","계란을 다시 넣고 소금·후추·참기름으로 마무리."],
+    tip:"밥은 고슬고슬한 찬밥이 더 잘 볶여요."},
+  {id:"doenjang",menu:"된장찌개",em:"🍲",cat:"한식",slots:["점심","저녁"],level:"보통",min:25,serves:"2인",
+    ing:["된장 2큰술","두부 1/2모","애호박·양파·감자","대파·청양고추","멸치육수 500ml"],
+    steps:["멸치육수를 끓이고 된장을 풀어요.","감자·양파를 먼저 넣어 익혀요.","애호박·두부를 넣고 5분 더 끓여요.","대파·고추를 넣고 한소끔 끓여 마무리."],
+    tip:"고춧가루 1작은술을 더하면 칼칼해져요."},
+  {id:"kimchijjigae",menu:"김치찌개",em:"🥘",cat:"한식",slots:["점심","저녁"],level:"보통",min:25,serves:"2인",
+    ing:["묵은지 2컵","돼지고기 150g","두부","양파·대파","고춧가루·설탕 조금","물 400ml"],
+    steps:["돼지고기와 김치를 볶아 기름과 감칠맛을 내요.","물을 붓고 15분간 끓여요.","고춧가루·설탕으로 간을 맞춰요.","두부·대파를 넣고 5분 더 끓여요."],
+    tip:"참치나 스팸으로 바꿔도 맛있어요."},
+  {id:"gyeranmari",menu:"계란말이",em:"🍳",cat:"한식",slots:["아침"],level:"쉬움",min:12,serves:"1~2인",
+    ing:["계란 3개","당근·대파 다진 것","소금 한 꼬집","식용유"],
+    steps:["계란을 풀고 다진 채소·소금을 섞어요.","약불 팬에 얇게 부어 반쯤 익으면 말아요.","빈 곳에 계란물을 더 붓고 이어 말아요.","한 김 식힌 뒤 먹기 좋게 썰어요."],
+    tip:"약불에서 천천히 말아야 안 터져요."},
+  {id:"chamchimayo",menu:"참치마요덮밥",em:"🍚",cat:"한식",slots:["점심"],level:"쉬움",min:10,serves:"1인",
+    ing:["밥 1공기","참치캔 1개","마요네즈","간장·설탕 조금","계란·김가루"],
+    steps:["참치는 기름을 빼고 마요네즈와 섞어요.","밥 위에 참치마요를 올려요.","간장·설탕을 살짝 뿌려요.","계란프라이와 김가루를 올려 완성."],
+    tip:"양파를 다져 넣으면 느끼함이 줄어요."},
+  {id:"jeyuk",menu:"제육볶음",em:"🌶️",cat:"한식",slots:["점심","저녁"],level:"보통",min:25,serves:"2인",
+    ing:["돼지고기 앞다리 300g","양파·대파","고추장 2·고춧가루 1·간장 1큰술","다진마늘·설탕·참기름"],
+    steps:["양념 재료를 모두 섞어 고기에 20분 재워요.","센 불 팬에 고기를 볶아요.","양파를 넣고 아삭하게 볶아요.","대파·참기름으로 마무리."],
+    tip:"불맛을 위해 팬을 충분히 달군 뒤 볶아요."},
+  {id:"miyeok",menu:"미역국",em:"🍲",cat:"한식",slots:["아침","점심","저녁"],level:"보통",min:30,serves:"2인",
+    ing:["불린 미역 2컵","소고기 100g","국간장·참기름","다진마늘","물 800ml"],
+    steps:["미역과 소고기를 참기름에 볶아요.","물을 붓고 20분간 끓여요.","국간장·마늘로 간을 맞춰요.","한소끔 더 끓여 완성."],
+    tip:"오래 끓일수록 국물이 뽀얗고 진해져요."},
+  {id:"budae",menu:"부대찌개",em:"🥘",cat:"한식",slots:["저녁"],level:"보통",min:30,serves:"2~3인",
+    ing:["햄·소시지·스팸","김치·두부","라면사리","고춧가루·다진마늘·간장","육수 700ml"],
+    steps:["재료를 냄비에 보기 좋게 담아요.","고춧가루·마늘·간장으로 양념장을 올려요.","육수를 붓고 끓여요.","마지막에 라면사리를 넣어 익혀요."],
+    tip:"체다치즈 한 장이면 국물이 부드러워져요."},
+  {id:"janchi",menu:"잔치국수",em:"🍜",cat:"한식",slots:["점심"],level:"쉬움",min:20,serves:"1~2인",
+    ing:["소면","멸치육수 600ml","국간장","애호박·계란지단·김가루","대파"],
+    steps:["멸치육수에 국간장으로 간을 해요.","소면을 삶아 찬물에 헹궈요.","그릇에 면을 담고 뜨거운 육수를 부어요.","고명(지단·호박·김)을 올려 완성."],
+    tip:"면을 헹궈야 붇지 않고 쫄깃해요."},
+  {id:"bibimguksu",menu:"비빔국수",em:"🍜",cat:"한식",slots:["점심"],level:"쉬움",min:20,serves:"1인",
+    ing:["소면","고추장 1·고춧가루 1·식초 1·설탕 1큰술","간장·참기름·깨","오이·계란"],
+    steps:["양념장 재료를 미리 섞어둬요.","소면을 삶아 찬물에 헹궈요.","면에 양념장을 넣고 비벼요.","오이채·삶은계란을 올려 완성."],
+    tip:"얼음 몇 조각을 올리면 끝까지 시원해요."},
+  {id:"tomategyeran",menu:"토마토 계란볶음",em:"🍅",cat:"중식",slots:["아침","점심"],level:"쉬움",min:15,serves:"1~2인",
+    ing:["토마토 2개","계란 3개","대파","설탕·소금","식용유"],
+    steps:["계란을 반숙으로 볶아 덜어둬요.","토마토를 볶아 즙이 나오게 해요.","설탕·소금으로 간하고 계란을 넣어요.","살짝 볶아 대파를 올려 완성."],
+    tip:"밥에 올려 덮밥으로 먹어도 좋아요."},
+  {id:"mapo",menu:"마파두부",em:"🌶️",cat:"중식",slots:["점심","저녁"],level:"보통",min:25,serves:"2인",
+    ing:["두부 1모","다진 돼지고기 100g","두반장 1큰술","간장·설탕·전분물","대파·마늘"],
+    steps:["팬에 고기와 마늘을 볶아요.","두반장·간장·설탕과 물을 넣어 끓여요.","깍둑썬 두부를 넣고 살살 끓여요.","전분물로 농도를 잡고 대파를 올려요."],
+    tip:"밥 위에 올리면 마파두부덮밥이 돼요."},
+  {id:"jjajang",menu:"간단 짜장면",em:"🍜",cat:"중식",slots:["점심","저녁"],level:"도전",min:30,serves:"2인",
+    ing:["춘장 3큰술","돼지고기·양파·양배추·감자","설탕·전분물","식용유","중화면"],
+    steps:["춘장을 기름에 1분 볶아 쓴맛을 빼요.","고기·채소를 볶아요.","볶은 춘장과 물·설탕을 넣어 끓여요.","전분물로 농도를 잡고 삶은 면에 부어요."],
+    tip:"춘장을 미리 볶아야 텁텁하지 않아요."},
+  {id:"yubu",menu:"유부초밥",em:"🍣",cat:"일식",slots:["점심"],level:"쉬움",min:15,serves:"1~2인",
+    ing:["유부초밥 키트","따뜻한 밥 1.5공기","단무지·당근 다진 것(선택)"],
+    steps:["밥에 동봉된 배합초를 섞어 식혀요.","다진 채소를 섞어요(선택).","유부 주머니에 밥을 채워요.","모양을 잡아 담아 완성."],
+    tip:"밥을 살짝 식혀 넣어야 유부가 안 찢어져요."},
+  {id:"gyudon",menu:"규동(소고기덮밥)",em:"🍱",cat:"일식",slots:["점심","저녁"],level:"보통",min:20,serves:"1~2인",
+    ing:["소고기 불고기감 200g","양파 1개","간장 3·맛술 2·설탕 1큰술","물·계란","밥"],
+    steps:["양파를 간장·맛술·설탕·물에 끓여요.","소고기를 넣어 익혀요.","계란을 풀어 반숙으로 올려요.","밥 위에 국물째 얹어 완성."],
+    tip:"쪽파나 시치미를 뿌리면 풍미가 살아요."},
+  {id:"oyako",menu:"오야코동(닭계란덮밥)",em:"🍱",cat:"일식",slots:["점심","저녁"],level:"보통",min:20,serves:"1~2인",
+    ing:["닭다리살 200g","양파","간장 2·맛술 2·설탕 1큰술","계란 2개","밥·쪽파"],
+    steps:["양파와 닭고기를 간장양념에 졸여요.","닭이 익으면 계란을 풀어 둘러요.","반숙으로 뚜껑 덮어 익혀요.","밥에 올리고 쪽파를 뿌려 완성."],
+    tip:"계란은 두 번 나눠 넣으면 더 촉촉해요."},
+  {id:"cream",menu:"크림파스타",em:"🍝",cat:"양식",slots:["저녁"],level:"보통",min:25,serves:"2인",
+    ing:["스파게티 180g","생크림 200ml·우유","베이컨·양파·마늘","파마산·소금·후추"],
+    steps:["면을 소금물에 삶아요(면수 남기기).","베이컨·마늘·양파를 볶아요.","생크림·우유를 넣어 살짝 졸여요.","면과 면수를 넣어 농도를 맞추고 치즈로 마무리."],
+    tip:"면수 한 국자가 소스를 부드럽게 이어줘요."},
+  {id:"aglio",menu:"알리오올리오",em:"🍝",cat:"양식",slots:["저녁"],level:"쉬움",min:20,serves:"1~2인",
+    ing:["스파게티 160g","마늘 6쪽","페페론치노·올리브유","소금·파슬리"],
+    steps:["면을 소금물에 삶아요.","올리브유에 편마늘을 약불로 볶아요.","페페론치노를 넣고 면수 한 국자를 부어요.","면을 넣고 유화시켜 파슬리로 마무리."],
+    tip:"마늘은 약불에서 노릇하게, 태우지 않기."},
+  {id:"tomatopasta",menu:"토마토파스타",em:"🍝",cat:"양식",slots:["저녁"],level:"보통",min:25,serves:"2인",
+    ing:["스파게티 180g","토마토소스 1컵","다진고기·양파·마늘","올리브유·소금·설탕"],
+    steps:["고기와 채소를 볶아요.","토마토소스를 넣고 5분 끓여요.","설탕 조금으로 산미를 잡아요.","삶은 면을 넣어 버무려 완성."],
+    tip:"소스가 되면 면수로 농도를 풀어요."},
+  {id:"omurice",menu:"오므라이스",em:"🍳",cat:"양식",slots:["점심","저녁"],level:"보통",min:25,serves:"1~2인",
+    ing:["밥 1공기","계란 2~3개","양파·당근·햄","케첩·소금·버터"],
+    steps:["채소·햄을 볶고 밥과 케첩을 넣어 볶음밥을 만들어요.","계란을 얇게 부쳐요.","볶음밥을 올려 계란으로 감싸요.","케첩으로 그림을 그려 완성."],
+    tip:"계란은 반숙일 때 밥을 올려야 잘 감싸져요."},
+  {id:"tteokbokki",menu:"떡볶이",em:"🌶️",cat:"분식",slots:["점심","저녁"],level:"쉬움",min:20,serves:"2인",
+    ing:["떡 300g","어묵 2장","고추장 2·고춧가루 1·설탕 2큰술","대파·물 400ml"],
+    steps:["물에 양념을 풀어 끓여요.","떡과 어묵을 넣어요.","중불에서 저어가며 졸여요.","대파를 넣고 윤기나게 마무리."],
+    tip:"떡이 딱딱하면 물에 잠깐 불려 넣어요."},
+  {id:"rabokki",menu:"라볶이",em:"🍜",cat:"분식",slots:["저녁"],level:"쉬움",min:20,serves:"2인",
+    ing:["떡·어묵","라면 1개","고추장·고춧가루·설탕","대파·계란","물 500ml"],
+    steps:["떡볶이 양념을 물에 풀어 끓여요.","떡·어묵을 넣어 졸여요.","라면과 스프 반개를 넣어 익혀요.","삶은계란·대파를 올려 완성."],
+    tip:"라면 스프는 반만 넣어야 짜지 않아요."},
+  {id:"gimbap",menu:"김밥",em:"🍙",cat:"분식",slots:["아침","점심"],level:"보통",min:30,serves:"2인",
+    ing:["김밥김·밥","단무지·당근·시금치·계란·햄","소금·참기름·깨"],
+    steps:["밥에 소금·참기름·깨를 섞어요.","속재료를 볶거나 데쳐 준비해요.","김에 밥을 얇게 펴고 재료를 올려 말아요.","참기름을 바르고 썰어 완성."],
+    tip:"밥은 김의 2/3만 펴야 안 터져요."},
+  {id:"pattai",menu:"간단 팟타이",em:"🍜",cat:"아시안",slots:["저녁"],level:"도전",min:30,serves:"2인",
+    ing:["쌀국수","새우·계란·숙주·부추","굴소스·피시소스·설탕·식초","땅콩·라임"],
+    steps:["쌀국수를 미지근한 물에 불려요.","팬에 새우·계란을 볶아요.","불린 면과 소스를 넣어 볶아요.","숙주·부추를 넣고 땅콩·라임을 올려 완성."],
+    tip:"면은 살짝 덜 불려야 볶을 때 안 퍼져요."},
+  {id:"toast",menu:"길거리 토스트",em:"🥪",cat:"양식",slots:["아침"],level:"쉬움",min:12,serves:"1인",
+    ing:["식빵 2장","계란·양배추·당근","햄·치즈","버터·케첩·설탕 조금"],
+    steps:["양배추·당근을 계란물에 섞어 부쳐요.","버터에 식빵을 노릇하게 구워요.","빵-야채전-햄-치즈 순으로 쌓아요.","케첩·설탕을 뿌려 반 접어 완성."],
+    tip:"설탕 살짝이 길거리 토스트 맛의 비결이에요."},
+  {id:"juk",menu:"야채죽",em:"🥣",cat:"한식",slots:["아침"],level:"쉬움",min:20,serves:"1~2인",
+    ing:["밥 1공기","당근·애호박·양파 다진 것","참기름·소금","물 600ml","계란(선택)"],
+    steps:["참기름에 다진 채소를 볶아요.","밥과 물을 넣고 저어가며 끓여요.","밥알이 퍼지게 12~15분 끓여요.","소금으로 간하고 참기름을 둘러 완성."],
+    tip:"속이 편해요. 계란을 풀어 넣으면 든든해요."},
+];
+let homeCards=[];
+function homePool(exclude){
+  const recent=recentMenus();
+  return HOMEDISHES
+    .filter(d=>d.slots.includes(curSlot))
+    .filter(d=>!S.bans.includes(d.cat))
+    .filter(d=>!recent.includes(d.menu))
+    .filter(d=>!(exclude||[]).includes(d.menu))
+    .map(d=>({d,sc:(S.prefs.includes(d.cat)?20:0)+Math.random()*50}))
+    .sort((a,b)=>b.sc-a.sc).map(x=>x.d);
+}
+function homeDataAttr(d){ return ` data-q="${(d.menu||'').replace(/[<>"&]/g,' ')}" data-em="${d.em}" data-cat="${d.cat}"`; }
+function homeHeroHTML(d,i){
+  return `<div class="hero">
+    <div class="gphoto"${homeDataAttr(d)}>${photoHTML(d)}</div><div class="scrim"></div>
+    <span class="pickbadge home">🍳 오늘의 집밥</span>
+    <button class="gref" onclick="event.stopPropagation();refreshHomeCard(${i})" aria-label="다른 요리">${REFRESH_SVG}</button>
+    <div class="gpanel">
+      <div class="gname"><span class="em">${d.em}</span> ${d.menu} <span class="gcat">${d.cat}</span></div>
+      <div class="crave">${craveLine(d)}</div>
+      <div class="bigdetail">
+        <div class="gmeta"><span>⏱️ ${d.min}분</span><span>🔥 ${d.level}</span><span>👥 ${d.serves}</span></div>
+        <div class="gacts">
+          <button class="gbtn recipe" onclick="event.stopPropagation();openRecipe('${d.id}')">🍳 레시피 보기</button>
+          <button class="gbtn ate" onclick="event.stopPropagation();ateHome('${d.id}')">❤️ 해먹을래요</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function homeMiniHTML(d,i){
+  return `<div class="mini" onclick="setHomeHero(${i})">
+    <div class="gphoto"${homeDataAttr(d)}>${photoHTML(d)}</div><div class="scrim"></div>
+    <button class="gref" onclick="event.stopPropagation();refreshHomeCard(${i})" aria-label="이 요리만 바꾸기">${REFRESH_SVG}</button>
+    <div class="mininame">${d.em} ${d.menu}</div>
+  </div>`;
+}
+function renderHome(){ heroVia=null; paintHeader(); homeCards=pickDiverse(homePool([]),4); heroIdx=0; paintHome(); }
+function paintHome(){
+  const box=document.getElementById("cards");
+  const total=HOMEDISHES.filter(d=>d.slots.includes(curSlot)&&!S.bans.includes(d.cat)).length;
+  document.getElementById("recCnt").textContent=`집밥 ${total}가지 중 · 오늘 뭐 해먹을지 골라봤어요`;
+  if(!homeCards.length){ box.innerHTML=`<div class="empty"><span class="big">🍳</span>조건에 맞는 요리가 부족해요.<br>제외 설정을 확인해보세요.</div>`; return; }
+  if(heroIdx>=homeCards.length) heroIdx=0;
+  let html=homeHeroHTML(homeCards[heroIdx],heroIdx);
+  const others=homeCards.map((d,i)=>({d,i})).filter(o=>o.i!==heroIdx);
+  html+=`<div class="mini-row">`+others.map(o=>homeMiniHTML(o.d,o.i)).join("")+`</div>`;
+  box.innerHTML=html; hydratePhotos();
+}
+function setHomeHero(i){ heroVia=null; heroIdx=i; paintHome(); }
+function refreshHomeCard(i){
+  const shown=homeCards.filter((_,k)=>k!==i).map(d=>d.menu);
+  const pool=homePool(shown);
+  if(!pool.length){ toast("바꿀 다른 요리가 없어요"); return; }
+  homeCards[i]=pool[0]; paintHome();
+}
+function ateHome(id){
+  const d=HOMEDISHES.find(x=>x.id===id); if(!d) return;
+  S.history.unshift({menu:d.menu,cat:d.cat,em:d.em,img:"",name:"집밥",ts:Date.now(),rating:0,pref:null,slot:curSlot,via:heroVia||null,home:true});
+  save(); toast(`🍳 "${d.menu}" 해먹기 기록! 맛있게 드세요`); checkBadges(); renderHome(); renderHistory();
+}
+function openRecipe(id){
+  const d=HOMEDISHES.find(x=>x.id===id); if(!d) return;
+  const ing=d.ing.map(x=>`<li>${x}</li>`).join("");
+  const steps=d.steps.map((x,k)=>`<li><span class="sn">${k+1}</span><span>${x}</span></li>`).join("");
+  const q=encodeURIComponent(d.menu+" 레시피");
+  document.getElementById("recipeSheet").innerHTML=`
+    <h3>${d.em} ${d.menu} <span class="anonbadge">${d.cat}</span></h3>
+    <div class="recmeta">⏱️ ${d.min}분 · 🔥 난이도 ${d.level} · 👥 ${d.serves}</div>
+    <div class="recsec"><h4>🧺 재료</h4><ul class="ing">${ing}</ul></div>
+    <div class="recsec"><h4>👩‍🍳 만드는 법</h4><ol class="steps">${steps}</ol></div>
+    ${d.tip?`<div class="rectip">💡 ${d.tip}</div>`:''}
+    <a class="primary reclink" href="https://search.naver.com/search.naver?query=${q}" target="_blank" rel="noopener">🔎 네이버에서 영상·후기 더 보기</a>
+    <button class="close" onclick="closeRecipe()">닫기</button>`;
+  document.getElementById("recipeOverlay").classList.add("on");
+}
+function closeRecipe(){ document.getElementById("recipeOverlay").classList.remove("on"); }
+function setMode(m){
+  mode=m;
+  document.querySelectorAll(".modebtn").forEach(b=>b.classList.toggle("on",b.dataset.mode===m));
+  const home=m==="home";
+  document.getElementById("cats").style.display=home?"none":"";
+  const hb=document.querySelector("#tab-home .hbtns"); if(hb) hb.style.display=home?"none":"flex";
+  const dh=document.querySelector("#tab-home .deckhint"); if(dh) dh.textContent=home?"미니 요리를 누르면 위로 올라와요 · 🍳 레시피 보기로 만드는 법 확인":"아래 3개 중 마음에 드는 걸 누르면 위로 올라와요 · 🔄 는 그 메뉴만 교체";
+  const rb=document.querySelector(".rouletteBtn"); if(rb) rb.innerHTML=home?`<span class="rico">🎰</span> 오늘 뭐 해먹지? 룰렛으로 뽑기!`:`<span class="rico">🎰</span> 못 고르겠다면? 룰렛으로 뽑기!`;
+  const nt=document.querySelector("#tab-home .note"); if(nt) nt.innerHTML=home?"최근 먹은 메뉴·못 먹는 재료는 자동 제외돼요":"최근 먹은 메뉴·👎 비선호는 자동 제외<br>위치 권한을 허용하면 내 주변 실시간 식당을 불러와요 (미배포/거부 시 강남역 샘플)";
+  refreshMode();
+}
+
 function paintCards(){
   const box=document.getElementById("cards");
   const total=RESTAURANTS.filter(r=>r.slots.includes(curSlot)&&!isBanned(r)&&(!activeCat||catList(r).includes(activeCat)||r.cat===activeCat)).length;
@@ -881,7 +1113,7 @@ document.querySelectorAll(".nav-btn").forEach(b=>b.onclick=()=>{
   if(b.dataset.tab==="map")openMapTab();
   window.scrollTo(0,0);
 });
-document.querySelectorAll(".slot").forEach(s=>s.onclick=()=>{curSlot=s.dataset.slot;render();});
+document.querySelectorAll(".slot").forEach(s=>s.onclick=()=>{curSlot=s.dataset.slot;refreshMode();});
 let toastT; function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),2200);}
 // ===== 실시간 주변 식당 (카카오 프록시) =====
 const API_BASE="";            // 같은 도메인에 배포되면 빈 값 그대로 OK
